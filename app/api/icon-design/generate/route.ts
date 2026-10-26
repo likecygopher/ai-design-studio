@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { createUserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import {
   buildIconDesignPrompt,
   DEFAULT_ICON_VI_PROMPT_TEMPLATE,
@@ -7,9 +10,8 @@ import {
 } from "@/src/domain/icon-design";
 import { parseImageModelChoice } from "@/src/domain/generation-models";
 import type { Asset, AssetType } from "@/src/domain/types";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
-import { createDemoAssetStore, generateDemoImage } from "@/src/services/demo-api";
-import { createDefaultSystemSettingsStore } from "@/src/services/system-settings";
+import { generateDemoImage } from "@/src/services/demo-api";
+import type { LocalAssetStore } from "@/src/services/local-asset-store";
 
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
 const BRAND_REFERENCE_TYPES = new Set<AssetType>([
@@ -38,7 +40,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请填写卖点标题。" }, { status: 400 });
   }
 
-  const imageStore = createDemoAssetStore();
+  const userId = await requireUserId();
+  const workspace = createUserWorkspace(userId);
+  const imageStore = workspace.imageStore;
   const assets = await imageStore.readAssetManifest();
   const sourceIcon = assets.find(
     (asset) => asset.id === sourceIconAssetId && asset.type === "icon-source"
@@ -62,7 +66,7 @@ export async function POST(request: Request) {
 
   try {
     const variant = getIconDesignVariant(variantId);
-    const settings = await createDefaultSystemSettingsStore().read();
+    const settings = await workspace.settingsStore.read();
     const taskId = `icon-design-${variant.id}-${Date.now()}`;
     const prompt = buildIconDesignPrompt({
       template: DEFAULT_ICON_VI_PROMPT_TEMPLATE,
@@ -80,7 +84,7 @@ export async function POST(request: Request) {
       imageModel,
       size: variant.size,
       imageStore,
-      costLedger: createDefaultCostLedger()
+      costLedger: workspace.costLedger
     });
 
     return NextResponse.json({
@@ -107,7 +111,7 @@ export async function POST(request: Request) {
 
 async function findBrandReferenceIds(
   assets: Asset[],
-  imageStore: ReturnType<typeof createDemoAssetStore>
+  imageStore: LocalAssetStore
 ): Promise<string[]> {
   const ids: string[] = [];
   for (const asset of [...assets].reverse()) {

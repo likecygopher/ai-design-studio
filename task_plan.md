@@ -306,3 +306,291 @@
 - Preserve completed navigation/settings/style-transfer work, existing data, the multipart CRLF fix, and unrelated behavior.
 - Scope is the existing three workflows, not a new platform/task subsystem or model-training feature. No paid generation or new external uploads during validation without separate authorization.
 - Status: completed for the approved three-workflow scope. Final full suite 250/254 passed with the four unrelated baseline failures retained; type validation and production build passed. Desktop/tablet/mobile and mocked retry/pairing flows verified; production POP produced six valid local PNGs without API writes. Preview running at http://127.0.0.1:3101/pop. No deployment, commit, paid generation, or new external upload.
+
+## Stage 27 - Commercial multi-user platform (SDD, 2026-10-26)
+- [x] Pull `origin/main` (PR #2: cover page + white-background + localization redesign) and resolve the 3 semantic conflicts; fixed the 6 merge-induced test failures.
+- [x] Write SDD artefacts: `docs/sdd/constitution.md` and `docs/sdd/specs/2026-10-26-commercial-platform/{spec,design,plan,tasks}.md`.
+- [x] Extend Prisma model + initial migration: `GenerationJob(idempotencyKey,nextAttemptAt,cancelledAt)`, `Asset.sizeBytes`, `AuditLog`, `WorkerHeartbeat`; harden seed (no demo password in production).
+- [x] Platform foundation: env validation, error contract, JSON logger, `handleApi`, rate limiter, audit, security headers, startup instrumentation, middleware hardening.
+- [x] Auth/RBAC/admin/health: login throttling, registration hardening, `requireRole`, admin users/jobs/stats/health, `/api/health`, `/api/ready`.
+- [x] Jobs reliability: idempotent enqueue, exponential backoff, stale-lease reclaim, cancel API + worker checkpoints, worker heartbeat + graceful shutdown (`src/platform/worker-runtime.ts`), cursor pagination, progress throttling.
+- [x] Storage/upload security: magic-byte validation, size/count/user quota, `sizeBytes`, private asset route, ownership checks on static file routes, cleanup CLI.
+- [x] Frontend: register page, `/jobs` task centre, role badge/nav entry, shared API client.
+- [x] Engineering: CI workflow (Postgres service), multi-stage Dockerfile + compose (web/worker/migrate/postgres), `docs/runbook.md`, README rewrite.
+- Verification: typecheck 0; vitest 83 files / 507 tests passed; `next build` 0; compose config OK; end-to-end smoke (register/login/RBAC/upload/quota/cancel/worker heartbeat+shutdown) passed.
+- Status: completed for the v1 commercial-platform scope. Not committed (left in working tree for review). No paid AI generation was triggered during verification.
+
+## Stage 28 - Admin account management + auth UI restyle (2026-10-26)
+- User asked for an account-management area (admin lists/creates users, resets passwords) and complained the login page styling did not match the rest of the product.
+- [x] Add SDD change spec `docs/sdd/changes/2026-10-26-admin-account-and-auth-ui.md` (R11 admin account management, R12 self-service, R13 auth-page visual alignment).
+- [x] Prisma `User.disabled` + `User.authVersion` + migration `20261026010000_account_admin`; session revocation and disabled-account enforcement in `getSessionUser` / login / `/api/auth/expire`.
+- [x] Admin APIs: create / edit (name, role, disabled) / reset password with guards (no self-disable or self-demote, last-admin protection) and audit; self-service password change.
+- [x] UI: `/admin/users` management table (search, role filter, pagination, create/edit/reset dialogs, one-time password panel), `/account` self-service page, nav entries ("账户设置" all users, "用户管理" admins only under 平台管理).
+- [x] Auth pages (`/login`, `/register`) rebuilt with the studio glass language (wallpaper + translucent panel + charcoal headings + pale-gold focus + dark pill actions), desktop split layout and mobile single column.
+- Verification: typecheck 0; vitest 89 files / 566 tests; `next build` 0; end-to-end disabled/reset/self-change flows; Playwright visual check on login/admin/account pages (desktop + 390px) with no console/page errors.
+- Status: completed. Test accounts cleaned from the local dev database; work remains uncommitted for review.
+
+## Stage 29 - Product-facing copy cleanup (2026-10-26)
+- User feedback: interface copy reads like a prototype sketch; remove explanatory text and keep a product voice.
+- [x] Written copy policy: page intros, tutorials, marketing bullets, decorative English eyebrows and model disclaimers are removed; labels/status/constraints/errors/empty states stay (with a one-line cap for constraints).
+- [x] Auth pages: removed marketing lead/bullets/meta/hint; kept brand lockup, title, form and functional footer.
+- [x] Platform pages: removed subtitles on users/account/jobs; compressed dialog hints; removed the `AI CONTENT STUDIO` label from every dialog header.
+- [x] Workflow pages: removed page intro paragraphs (assets/products/icon/phone/sku/pop/white/localize/style-transfer/costs/product-video), decorative eyebrows, tutorial hints and "辅助生成说明" disclaimers; localised cost table headers and added empty states.
+- [x] Library panels: removed category descriptions and upload explainers while keeping format limits and empty states.
+- Verification: typecheck 0; vitest 90 files / 566 tests; `next build` 0; Playwright sweep over 13 pages (login, studio-home, 10 workflows, admin) with no console/page errors.
+- Status: completed; copy policy recorded in `docs/sdd/changes/2026-10-26-ui-copy-cleanup.md` and the SDD constitution.
+
+## Stage 30 - Auth visual asset + unified form controls (2026-10-26)
+- User asked to replace the login page left-side copy with an SVG/existing asset, and to fix inconsistent/abrupt input styles across the studio.
+- [x] Login/register left column: removed the brand statement text, now shows the existing brand scene render `public/midea-ai/midea-finale-city.png` (cover, decorative only, hidden <1024px); brand lockup stays in the form card.
+- [x] Unified form controls inside `.main`: one 34px height, 8px radius, 1px translucent border, glass surface, 11.5px text, gold focus ring; removed the legacy 42px select height / 10px font overrides.
+- [x] Native file picker replaced in the asset library with a custom "选择文件" control + selected filename summary; global `::file-selector-button` fallback styling kept.
+- [x] Checkbox/radio sizing and accent colour normalised; textarea min-height + resize.
+- Verification: typecheck 0; vitest 90 files / 566 tests; `next build` 0; Playwright screenshots for login (desktop/mobile), assets, style-transfer, icon-design, white-background, products, SKU, admin — no console/page errors.
+- Status: completed; work remains uncommitted for review.
+
+## Stage 32 - Extensible AI provider registry + admin overview/audit (2026-10-27)
+- User feedback: AI engine should be a table with an "add" dialog, not two hardcoded providers; other vendors should be connectable; and platform management should cover missing admin capabilities.
+- [x] `AiProvider` model + migration: name/channel/baseUrl/proxy/encrypted key/models/enabled/priority/last-test; arbitrary OpenAI-compatible vendors + 火山方舟 channel.
+- [x] Provider registry (`src/platform/ai-config.ts`): CRUD, active-once-per-channel (priority), AES-256-GCM key storage, masked views, env projection, lazy hydration for web, 60s refresh for worker.
+- [x] Admin APIs: list/create/update/delete/test/set-default; audit actions; connectivity test stores last result.
+- [x] UI: `/admin/ai` table + add/edit dialog with vendor presets (OpenAI/DeepSeek/Moonshot/通义/OpenRouter/ARK/custom), icon row actions, active badge.
+- [x] Admin completeness: `/admin` overview (users/jobs/queue/storage/worker) and `/admin/audit` log viewer with action/keyword filters.
+- Verification: typecheck 0; vitest 100 files / 615 tests; `next build` 0; end-to-end provider create → encrypted DB row → masked list → unreachable test recorded → set-active → edit/clear key → delete; non-admin 403; Playwright screenshots for table + dialog with no console errors.
+- Status: completed. Smoke data cleaned; work remains uncommitted for review.
+
+## Stage 33 - Job operations + monthly budget + CSP (2026-10-27)
+- [x] User retry for failed/cancelled jobs (`POST /api/jobs/{id}/retry`) and admin retry/cancel (`/api/admin/jobs/{id}/retry|cancel`).
+- [x] `/admin/jobs` task console: status/user filters, attempts/error, retry/cancel actions, nav entry.
+- [x] `User.monthlyBudgetUnits` + migration; `DEFAULT_MONTHLY_BUDGET_UNITS`; budget gate in enqueue (429 COST_BUDGET_EXCEEDED, audited) with null=default/0=unlimited.
+- [x] `/admin/users` usage column + budget editing; `/costs` DB-backed ledger + budget progress; `/api/costs` returns snapshot.
+- [x] CSP security header; job/retry/budget tests; docs.
+- Verification: tsc 0; vitest 105 files / 642 tests; next build 0; e2e retry/cancel/budget-block/CSP verified; Playwright no console errors; smoke data cleaned.
+- Status: completed; work uncommitted.
+
+## Stage 34 - Provider health, usage stats and automatic failover (2026-10-27)
+- [x] `AiProvider` usage counters + migration: success/failure/consecutiveFailures/lastFailureAt/reason.
+- [x] `provider-health.ts`: channel inference from job type/payload; per-attempt attribution; 2 consecutive failures promote next enabled provider (priority update + hydrate + audit `admin.ai_config.failover` with system actor).
+- [x] Worker wraps `executeJob` to record outcomes (success/failure, latency) without affecting job completion.
+- [x] Admin provider table shows usage and "连续失败 · 已切换" badge; web process refreshes config every 60s.
+- Verification: tsc 0; vitest 106 files / 649 tests; next build 0; e2e simulated two failures -> provider A consecutive=2, B promoted to priority 99/active, audit row created; Playwright no console errors; smoke data cleaned.
+- Status: completed; uncommitted.
+
+## Stage 35 - Dependency hardening + E2E in CI (2026-10-27)
+- [x] Upgrade Next 15.5.28, undici 6.29.1, sharp 0.35.5, Zod 4.6.7 (migrated `required_error`/`errorMap` to v4 params).
+- [x] pnpm 11 security overrides in `pnpm-workspace.yaml` (postcss/nanoid/browserslist/source-map-js/deepmerge-ts/effect/baseline-browser-mapping/sharp); `pnpm audit --prod --audit-level=high` now reports 0 vulnerabilities.
+- [x] Playwright 1.64.1 E2E: auth setup + storageState, login/workbench, admin pages, user pages, anonymous redirect; `pnpm-workspace.yaml` keeps allowBuilds.
+- [x] CI adds audit gate + seed + Playwright Chromium + `pnpm e2e`; `pnpm audit` script.
+- Verification: tsc 0; vitest 106 files / 649 tests; next build 0; audit 0 prod vulnerabilities; local E2E 5/5 passed (3.1s).
+- Status: completed; uncommitted.
+
+## Stage 36 - TOTP two-factor + device sessions (2026-10-27)
+- [x] `User.totpSecret/totpEnabled/totpRecoveryCodes` + `AuthSession` table/migration.
+- [x] Dependency-free TOTP (`totp.ts`: RFC 6238 vectors, ±1 window, otpauth URI, one-time recovery codes).
+- [x] 2FA lifecycle APIs + login second factor; recovery code consumption; audits.
+- [x] Device sessions: create on login, validate per request (5-min lastSeen touch), list/revoke APIs, current-device sign-out, password change/reset revokes all sessions.
+- [x] `/account` UI cards for 2FA and devices; login form optional code; audit labels; cleanup of stale sessions.
+- Verification: tsc 0; vitest 110 files / 675 tests; next build 0; API smoke: enable -> password-only login fails -> TOTP login succeeds -> sessions listed -> disable; Playwright account page no console error.
+- Status: completed; uncommitted.
+
+## Stage 37 - Bilingual UI foundation (2026-10-27)
+- [x] Dependency-free i18n core: locale cookie, zh/en dictionaries, interpolation, Chinese fallback, server getLocale + client I18nProvider.
+- [x] LocaleSwitcher in shell and login; root layout reads cookie and sets <html lang>.
+- [x] Localized shell/navigation, login/register, account security (password, 2FA, device sessions).
+- [x] Tests: core/server/switcher unit tests; E2E switches login page to English; existing zh tests unchanged.
+- Verification: tsc 0; vitest 113 files / 682 tests; next build 0; Playwright 6/6.
+- Status: infrastructure + covered surfaces complete; admin/workflow pages queued.
+
+## Stage 38 - Observability metrics and alerts (2026-10-27)
+- [x] Dependency-free Prometheus registry (`metrics.ts`): counters/histograms/gauges, route normalization, label escaping, process gauges.
+- [x] Instrument API wrapper (requests, duration, rate-limit rejections), job enqueue/completion/failure/duration, budget blocks, provider outcomes.
+- [x] `/api/metrics` with METRICS_TOKEN Bearer or admin session; `/api/admin/health` alerts (database/workers/queue depth/failure rate/providers) and ok/degraded/unhealthy status.
+- [x] Admin overview renders alert banners with severity.
+- Verification: tsc 0; tests; next build 0; E2E admin scrape 200 + anonymous 401.
+- Status: completed; uncommitted.
+
+## Stage 39 - API tokens, webhooks and OpenAPI (2026-10-27)
+- [x] `ApiToken` (hashed, prefix, scopes, expiry/revoke) + `WebhookEndpoint`/`WebhookDelivery` models and migration.
+- [x] Bearer token auth in `handleApi`; Edge middleware lets Bearer requests through to Node for DB validation; token inherits user role.
+- [x] Account APIs for tokens and webhooks; HMAC-signed webhook delivery from worker on job.succeeded/job.failed; SSRF guard; delivery records.
+- [x] OpenAPI 3.1 document at `/api/openapi`; account page token card.
+- Verification: tsc 0; vitest 118 files / 705 tests; next build 0; smoke: Bearer-only /api/jobs & /api/admin/users 200, invalid token 401, webhook create/list/delete, openapi 200/16 paths.
+- Status: completed; uncommitted.
+
+## Stage 40 - Data governance export/delete/audit CSV (2026-10-27)
+- [x] `/api/account/export`: own-data JSON attachment (accounts/assets/jobs/costs/audit/tokens/webhooks/sessions), secrets and storage keys excluded, audited, rate-limited.
+- [x] `DELETE /api/account`: password confirmation, last-admin guard, cascade delete, best-effort asset file removal, audit with null userId.
+- [x] `/api/admin/audit/export`: CSV attachment with BOM/escaping/filters/limit, audited; admin UI export button.
+- [x] Account UI "数据与隐私" card: export download + delete confirmation.
+- Verification: tsc 0; vitest 121 files / 716 tests; next build 0; smoke: export attachment/no secrets, CSV parse, temp user create→delete→login fails.
+- Status: completed; uncommitted.
+
+## Stage 41 - Redis distributed rate limiting (2026-10-27)
+- [x] Async limiter abstraction + RedisRateLimiter (Lua INCR/PEXPIRE/PTTL) with in-process fallback; ioredis dynamically imported (Edge-safe).
+- [x] API wrapper and login authorize use async limiter; REDIS_URL config; request/login key prefixes.
+- [x] Unit tests: Redis decisions, rejection, fallback, reset; smoke with local Redis: 5th export request 429 + Retry-After, keys present.
+- [ ] Object storage S3/OSS driver remains (documented as follow-up; local volume still default).
+- Verification: tsc 0; vitest 121 files / 720 tests; next build 0; audit 0.
+- Status: Redis part completed; storage part deferred; uncommitted.
+
+## Stage 42 - Job approval workflow (2026-10-27)
+- [x] Schema: GenerationJob approval fields + User.requiresJobApproval; migration with backfill.
+- [x] Enqueue decides approval (platform env OR user flag); worker claim SQL only selects approved jobs; approve/reject helpers with audits.
+- [x] Admin APIs approve/reject; admin jobs approval filter + badges + actions; user task center pending badge; admin user edit toggle.
+- Verification: tsc 0; vitest 123 files / 729 tests; next build 0; smoke: per-user flag -> pending job not claimable -> admin approve -> claimable; reject cancels with note.
+- Status: completed (approval slice of item 10); other item-10 areas (org tenancy/marketplace/billing) remain.
+
+## Stage 43 - Final verification and backlog handoff (2026-10-27)
+- [x] Full gates: tsc 0; vitest 123 files / 729 tests; next build 0; prod audit 0; Playwright 7/7.
+- [x] Record delivered vs remaining in `docs/sdd/backlog/2026-10-27-remaining.md`; README roadmap section.
+- [ ] Remaining: i18n admin/workflow pages, object storage driver, org tenancy, template marketplace, billing, webhook UI/scopes.
+- Status: this phase complete; work uncommitted; continuation backlog documented.
+
+## Stage 44 - Plans and quota resolution (2026-10-27)
+- [x] Plan model (budget/active-job limits) + User.planId migration.
+- [x] Plan service/admin APIs with delete-in-use guard and audits; plan budget/active-job precedence in quotas/jobs.
+- [x] `/admin/plans` UI (list/create/edit/delete) + user plan binding in admin user edit; nav entry; i18n label.
+- Verification: tsc 0; vitest 125 files / 738 tests; next build 0; smoke: create/assign/delete guard/unassign/delete; E2E includes plans page.
+- Status: completed (billing quota slice); payment/subscriptions remain.
+
+## Stage 45 - i18n batch 2: admin ops + jobs/costs (2026-10-27)
+- [x] Localized `/admin` overview, `/admin/jobs`, `/admin/plans`, task center and `/costs` (server locale).
+- [x] Shared `job.status.*` / `job.type.*` dictionary keys; English locale E2E for admin pages.
+- Verification: tsc 0; vitest 125 files / 738 tests; next build 0; E2E 8/8.
+- Remaining i18n: admin/users, admin/ai, admin/audit, 13 workflow pages, server error codes.
+
+## Stage 46 - i18n batch 3: audit log (2026-10-27)
+- [x] `/admin/audit` localized (title, filters, table, export, action labels via `enByZh` fallback map).
+- [x] E2E English admin page check extended to audit log.
+- Verification: tsc 0; vitest 125 files / 738 tests; next build 0; E2E 8/8.
+- Remaining i18n: admin/users, admin/ai, 13 workflow pages, server error codes.
+
+## Stage 47 - i18n batch 4: AI engine admin (2026-10-27)
+- [x] `/admin/ai` localized: table/status/usage/test results/presets/form/api-key placeholders/confirmations.
+- [x] Dynamic placeholders via Chinese-source keys; E2E English check includes AI Engines.
+- Verification: tsc 0; vitest 125 files / 738 tests; build 0; E2E 8/8.
+- Remaining i18n: admin/users, 13 workflows, server error codes.
+
+## Stage 48 - i18n batch 5: user management admin (2026-10-27)
+- [x] `/admin/users` localized (table, filters, create/edit/reset/one-time password dialogs, plan/approval toggles, errors).
+- [x] All five admin pages + task center + costs now bilingual; E2E English check covers users.
+- Verification: tsc 0; vitest 125 files / 738 tests; build 0; E2E 8/8.
+- Remaining i18n: 13 workflow pages, server error-code localization.
+
+## Stage 49 - API error localization (2026-10-27)
+- [x] `src/i18n/errors.ts`: English messages per API error code + client locale reader.
+- [x] `formatApiError` localized (English code message, request-id format), Chinese behavior unchanged.
+- [x] Registration validation/rule hint localized; tests for error mapping and api client.
+- Verification: tsc 0; vitest 126 files / 742 tests; build 0; E2E 8/8.
+- Remaining i18n: 13 workflow pages.
+
+## Stage 50 - Webhook UI + token scopes (2026-10-27)
+- [x] API token scopes (read/read+write); write enforcement in handleApi; account UI scope selector.
+- [x] Account page webhook management card (create with events, one-time secret, list/delete).
+- Verification: tsc 0; vitest 126 files / 745 tests; build 0; smoke read GET 200 / read POST 403 / rw POST 202; E2E 8/8.
+- Remaining: workflow i18n, object storage, org tenancy, marketplace, billing.
+
+## Stage 51 - i18n batch 6: shared workflow components (2026-10-27)
+- [x] CapabilityRunner, ProductProfilePanel, AssetLibrary localized; localized file-name separators and material categories.
+- [x] E2E English check includes asset library.
+- Verification: tsc 0; vitest 126 files / 745 tests; build 0; E2E 8/8.
+- Remaining i18n: 13 studio pages.
+
+## Stage 52 - Alert webhook delivery (2026-10-27)
+- [x] `alerting.ts`: shared health snapshot + Slack-compatible webhook dispatch with dedupe/cooldown/recovery, metrics.
+- [x] `/api/admin/health` reuses snapshot; worker periodic 60s check; env + docs.
+- Verification: tsc 0; vitest 127 files / 750 tests; build 0; E2E 8/8.
+
+## Stage 53 - i18n batch 7: home/crop/chat (2026-10-27)
+- [x] GlassHomeStudio, ImageCropDialog, CoverChat localized; E2E English home check.
+- Verification: tsc 0; vitest 127 files / 750 tests; build 0; E2E 8/8.
+
+## Stage 54 - i18n batch 8: phone standardization studio (2026-10-27)
+- [x] PhoneStandardizeRunner localized (task copy, upload flow, progress, results, errors); E2E English page check.
+- Verification: tsc 0; vitest 127 files / 750 tests; build 0; E2E 8/8.
+
+## Stage 55 - i18n batch 9: style transfer + final handoff (2026-10-27)
+- [x] StyleTransferStudio localized; E2E English page check.
+- [x] Final handoff doc with remaining backlog and verification commands.
+- Verification: tsc 0; vitest 127 files / 750 tests; build 0; E2E 8/8.
+- Goal remains incomplete: object storage, org tenancy, marketplace, billing, remaining studios i18n.
+
+## Stage 56 - i18n batch 10: settings/tuners/icon/video/picker (2026-10-27)
+- [x] Localized StudioSettings, EdgeTuner, GlassTuner, IconDesignStudio, ProductVideoStudio, StyleMaterialPicker.
+- Verification: tsc 0; vitest 127/750; build 0; E2E 8/8.
+
+## Stage 57 - i18n batch 11: white background studio (2026-10-27)
+- [x] WhiteBackgroundRunner localized (references, toggles, angles, sizes, results, dialogs, errors).
+- Verification: tsc 0; vitest 127/750; build 0; E2E 8/8.
+
+## Stage 58 - i18n batch 12: PDP canvas (2026-10-27)
+- [x] PdpCanvasEditor localized (toolbar, inspector, assets, export, helpers).
+- Verification: tsc 0; vitest 127/750; build 0.
+
+## Stage 59 - i18n batch 13: SKU replacement studio (2026-10-27)
+- [x] SkuReplacementStudio localized (modes, uploads, mask editor, prompt, result, errors).
+- Verification: tsc 0; vitest 127/750; build 0; E2E 8/8.
+
+## Stage 60 - i18n batch 14: localization studio (2026-10-27)
+- [x] LocalizePanel localized (modes, assets, base pairing, target market, results, errors).
+- Verification: tsc 0; vitest 127/750; build 0.
+
+## Stage 61 - i18n batch 15: POP canvas + workflow i18n wrap-up (2026-10-27)
+- [x] PopCanvasStudio localized; primary workflow surfaces now bilingual.
+- Verification: tsc 0; vitest 127/750; build 0; E2E 8/8.
+
+## Stage 62 - object storage S3 driver (2026-10-27)
+- [x] `object-storage.ts` local/S3 drivers; config/env validation; user-asset-store uses driver; S3 URLs via authorised proxy.
+- [x] Tests: local driver + mocked S3 driver + store integration; audit clean.
+- Verification: tsc 0; vitest 128 files / 754 tests; next build 0; pnpm audit 0; E2E 8/8.
+
+## Stage 63 - webhook retries + delivery UI (2026-10-27)
+- [x] WebhookDelivery payload/attempts/nextAttemptAt; exponential backoff sweep in worker; manual retry API; account UI delivery list.
+- Verification: tsc 0; vitest 129 files / 758 tests; build 0; E2E 8/8.
+
+## Stage 64 - template marketplace (2026-10-27)
+- [x] MarketplaceItem/UserTemplate models + migration; publish/review/list/clone service + APIs; admin review API.
+- [x] `/marketplace` (market/my templates/publish/clone) + `/admin/marketplace` review; nav + i18n.
+- Verification: tsc 0; vitest 130 files / 762 tests; build 0; E2E 8/8.
+
+## Stage 65 - revert billing per user request (2026-10-27)
+- [x] Removed Subscription/Invoice schema + migration, billing service/APIs/pages/nav/audit/i18n.
+- Plan quotas remain; docs note billing is explicitly out of scope.
+
+## Stage 66 - organizations phase 1 (2026-10-27)
+- [x] Organization/OrganizationMember models + migration backfill (personal org per user, active org, product/asset/job organizationId columns).
+- [x] Org service/APIs (members/roles/switch/rename), registration hook, `/account/organization` UI + nav + i18n.
+- Verification: tsc 0; vitest 131 files / 767 tests; build 0; E2E 8/8.
+- Next: phase 2 data isolation (products/assets/jobs scoped by active organization).
+
+## Stage 67 - organizations phase 2 data isolation (2026-10-27)
+- [x] Active-org cache from session; product/asset/job queries scoped by organization OR user; job creation stores organizationId; worker workspace uses job org.
+- Verification: tsc 0; vitest 131 files / 767 tests; build 0; E2E 8/8.
+
+## Stage 68 - enterprise SSO (OIDC) (2026-10-27)
+- [x] OIDC provider via env; User.ssoProvider/ssoSubject migration; link/auto-provision/default-org; domain allowlist; session creation + audits.
+- [x] Login page SSO button (zh/en) enabled only when configured; env/docs/runbook.
+- Verification: tsc 0; vitest 132 files / 774 tests; build 0; E2E 8/8; enabled-page smoke shows SSO button.
+
+## Stage 69 - CSP nonce + organization archive/delete + final acceptance (2026-10-27)
+- [x] CSP nonce in Edge middleware (strict-dynamic, no script unsafe-inline), removed static CSP; nonce in HTML; E2E CSP assertion.
+- [x] Organization archivedAt, archive/delete services/APIs/UI, archived-org session fallback, tests.
+- [x] Final handoff doc; final gates: tsc 0; vitest 133 files / 781 tests; next build 0; E2E 9 passed; audit 0.
+
+## Stage 70 - per-org IdP + SAML 2.0 + SCIM (2026-10-27)
+- [x] OrganizationSsoConfig/SsoLoginState/SsoLoginTicket/Scim* models + migration; encrypted secrets; SCIM token hashing.
+- [x] OIDC authorization-code+PKCE per org, SAML SP metadata/ACS via node-saml, one-time ticket bridge to Auth.js, returnTo hardening.
+- [x] SCIM 2.0 Users/Groups + ServiceProviderConfig, group→role mapping; admin UI at /account/organization/sso.
+- Verification: tsc 0; vitest 135 files / 790 tests; next build 0; E2E 9 passed; SCIM smoke user+group role=admin; audit 0.
+
+## Stage 71 - workspace compact layout (2026-10-27)
+- [x] `useWorkspaceLayout` + toggle; AppShell/home compact CSS (100dvh, narrow sidebar, dense content, dock avoidance, home flex fill).
+- Verification: tsc 0; vitest 135/790; build 0; E2E 10 passed (toggle + persistence).
+
+## Stage 72 - button readability + dock overlap (2026-10-27)
+- [x] Excluded primary/dark variants from legacy glass-button skin; unified primary blue + hover; reserved dock space; E2E for admin CTA/dock.
+- Verification: tsc 0; vitest 135/790; build 0; E2E 11 passed.
+
+## Stage 73 - submit button dark gradient (2026-10-27)
+- [x] Submit/confirm buttons use linear-gradient(180deg,#37444a,#202a30); non-submit tabs/generate/toggle keep own styles; hover stays white.
+- Verification: tsc 0; vitest 135/790; build 0; E2E 11 passed.

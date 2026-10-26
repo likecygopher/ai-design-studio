@@ -147,7 +147,7 @@ function renderBlock(
   let body = "";
 
   if (block.kind === "brand") {
-    body = brandBlock(block, brandImageDataUri);
+    body = brandBlock(block, document, brandImageDataUri);
   } else if (block.kind === "kv") {
     body = kvBlock(
       block,
@@ -178,11 +178,37 @@ ${body}
   </g>`;
 }
 
-function brandBlock(block: PdpCanvasBlock, brandImageDataUri?: string): string {
+function brandBlock(
+  block: PdpCanvasBlock,
+  document: PdpDocument,
+  brandImageDataUri?: string
+): string {
   const imageHref = brandImageDataUri || "/pdp/midea-brand-no1.png";
+  const brandStatement = document.brandMessage?.trim();
 
-  return `    <rect width="${block.width}" height="${block.height}" fill="#ffffff" stroke="#cfd7df"/>
+  const imageLayer = `    <rect width="${block.width}" height="${block.height}" fill="#ffffff" stroke="#cfd7df"/>
     <image href="${escapeXml(imageHref)}" width="${block.width}" height="${block.height}" preserveAspectRatio="xMidYMid meet"/>`;
+
+  // The brand statement is the user-editable claim captured by the PDP export
+  // API (`brandMessage`); it must survive into the rendered SVG instead of
+  // being silently dropped by the image-only brand banner.
+  if (!brandStatement) {
+    return imageLayer;
+  }
+
+  const panelHeight = Math.round(block.height * 0.2);
+  const panelY = block.height - panelHeight;
+  const messageLines = wrapText(
+    brandStatement,
+    Math.max(36, Math.floor(block.width / 10)),
+    3
+  );
+  const lineHeight = Math.max(16, Math.round(block.width / 40));
+  const fontSize = Math.max(14, Math.round(block.width / 52));
+
+  return `${imageLayer}
+    <rect y="${panelY}" width="${block.width}" height="${panelHeight}" fill="#ffffff" fill-opacity="0.94"/>
+${svgCenteredTextLines(messageLines, 0, panelY, block.width, panelHeight, lineHeight, fontSize, "#3f4549", 600)}`;
 }
 
 function kvBlock(

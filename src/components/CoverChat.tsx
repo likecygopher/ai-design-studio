@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowUp, Ellipsis, Film, LayoutTemplate, PanelTop, SwatchBook } from "lucide-react";
 import { useEffect, useRef, useState, type FormEvent, type KeyboardEvent } from "react";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type ChatMessage = {
   role: "user" | "assistant";
@@ -27,6 +28,7 @@ const shortcuts = [
 ] as const;
 
 export function CoverChat() {
+  const { t } = useI18n();
   const router = useRouter();
   const historyEndRef = useRef<HTMLDivElement>(null);
   const [input, setInput] = useState("");
@@ -49,7 +51,7 @@ export function CoverChat() {
     setPending(true);
 
     let failureMessage = /[\u3400-\u9fff]/u.test(message)
-      ? "助手暂时不可用，请稍后再试。"
+      ? t("助手暂时不可用，请稍后再试。")
       : "The assistant is temporarily unavailable. Please try again.";
 
     try {

@@ -1,13 +1,12 @@
 import { AppShell } from "@/src/components/AppShell";
 import { PdpEditor } from "@/src/components/PdpEditor";
-import { createDemoAssetStore } from "@/src/services/demo-api";
-import { createDefaultProductRegistry } from "@/src/services/product-registry";
+import { requireServerWorkspace } from "@/src/platform/server-workspace";
 
 // Product list includes user-created products, so render per request.
 export const dynamic = "force-dynamic";
 
 export default async function PdpPage() {
-  const products = await createDefaultProductRegistry(createDemoAssetStore()).listProducts();
+  const products = await (await requireServerWorkspace()).productRegistry.listProducts();
 
   return (
     <AppShell>

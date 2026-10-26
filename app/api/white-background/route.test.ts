@@ -2,9 +2,18 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ render: vi.fn(), product: vi.fn() }));
 vi.mock("@/src/services/white-background", () => ({ renderWhiteBackgroundOutput: mocks.render }));
-vi.mock("@/src/services/demo-api", () => ({ createDemoAssetStore: () => ({}) }));
-vi.mock("@/src/services/product-registry", () => ({ createDefaultProductRegistry: () => ({ getProduct: mocks.product }) }));
-vi.mock("@/src/services/cost-ledger", () => ({ createDefaultCostLedger: () => ({}) }));
+vi.mock("@/src/platform/audit", () => ({ recordAudit: vi.fn() }));
+vi.mock("@/src/platform/auth", () => ({
+  getSessionUser: async () => ({ id: "user-1", email: "u@example.com", role: "user" })
+}));
+vi.mock("@/src/platform/workspace", () => ({
+  createUserWorkspace: () => ({
+    userId: "user-1",
+    productRegistry: { getProduct: mocks.product },
+    imageStore: {},
+    costLedger: {}
+  })
+}));
 import { POST } from "./route";
 const body = { productId: "p", referenceAssetIds: ["a"], angle: "front", sourceState: "as-reference", autoRemoveBackground: true, whiteBackground: true, naturalShadow: false, width: 2000, height: 2000, imageModel: "openai" };
 beforeEach(() => {

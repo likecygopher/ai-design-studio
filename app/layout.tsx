@@ -1,5 +1,9 @@
 import type { Metadata } from "next";
+import { headers } from "next/headers";
 import localFont from "next/font/local";
+import { AuthSessionProvider } from "@/src/components/AuthSessionProvider";
+import { I18nProvider } from "@/src/i18n/I18nProvider";
+import { getLocale } from "@/src/i18n/server";
 import "./globals.css";
 
 const gotham = localFont({
@@ -70,18 +74,27 @@ const gotham = localFont({
 });
 
 export const metadata: Metadata = {
-  title: "Midea AI Content Demo",
-  description: "Local AI product marketing content workbench"
+  title: "Midea AI Content Studio",
+  description: "Multi-user AI product marketing content platform"
 };
 
-export default function RootLayout({
+export default async function RootLayout({
   children
 }: Readonly<{
   children: React.ReactNode;
 }>) {
+  const locale = await getLocale();
+  const nonce = (await headers()).get("x-nonce") ?? undefined;
   return (
-    <html className={gotham.variable} lang="zh-CN">
-      <body>{children}</body>
+    <html className={gotham.variable} lang={locale === "en" ? "en" : "zh-CN"}>
+      <head>
+        {nonce ? <meta name="csp-nonce" content={nonce} /> : null}
+      </head>
+      <body>
+        <I18nProvider locale={locale}>
+          <AuthSessionProvider>{children}</AuthSessionProvider>
+        </I18nProvider>
+      </body>
     </html>
   );
 }

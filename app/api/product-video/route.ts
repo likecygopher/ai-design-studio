@@ -1,10 +1,10 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
+import { createUserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import { PRODUCT_VIDEO_OUTPUT } from "@/src/domain/product-video";
 import type { Asset } from "@/src/domain/types";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
-import { createDemoAssetStore } from "@/src/services/demo-api";
-import { createDefaultProductRegistry } from "@/src/services/product-registry";
-import { createDefaultSystemSettingsStore } from "@/src/services/system-settings";
 import {
   createSeedanceVideoProvider,
   DEFAULT_SEEDANCE_FALLBACK_MODELS,
@@ -19,6 +19,7 @@ const savedVideoUrls = new Map<string, string>();
 export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
+  await ensureAiConfigHydrated();
   const body = await request.json().catch(() => null);
   const productId = String(body?.productId ?? "").trim();
   const prompt = String(body?.prompt ?? "").trim();
@@ -28,8 +29,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请选择产品并填写视频提示词。" }, { status: 400 });
   }
 
-  const imageStore = createDemoAssetStore();
-  const product = await createDefaultProductRegistry(imageStore).getProduct(productId);
+  const userId = await requireUserId();
+  const workspace = createUserWorkspace(userId);
+  const imageStore = workspace.imageStore;
+  const product = await workspace.productRegistry.getProduct(productId);
   if (!product) {
     return NextResponse.json({ error: "产品不存在，请先在产品档案中创建产品。" }, { status: 400 });
   }
@@ -59,8 +62,8 @@ export async function POST(request: Request) {
   try {
     const provider = createProvider();
     const task = await provider.createTask({ prompt, referenceImage });
-    const settings = await createDefaultSystemSettingsStore().read();
-    await createDefaultCostLedger().appendRecord({
+    const settings = await workspace.settingsStore.read();
+    await workspace.costLedger.appendRecord({
       taskId: task.taskId,
       task: "产品视频 / Hero Product Film",
       model: task.model,
@@ -108,7 +111,7 @@ export async function GET(request: Request) {
       if (downloaded.bytes.byteLength > MAX_VIDEO_BYTES) {
         throw new Error("生成视频超过 250 MB，未缓存到本机。");
       }
-      const saved = await createDemoAssetStore().saveGeneratedImage({
+      const saved = await createUserWorkspace(await requireUserId()).imageStore.saveGeneratedImage({
         taskId: `product-video-${taskId}`,
         filename: "hero-film.mp4",
         contentType: "video/mp4",

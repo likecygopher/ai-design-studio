@@ -23,6 +23,7 @@ import { createDoubaoImageProvider, DEFAULT_DOUBAO_IMAGE_MODEL } from "@/src/ser
 import { createDefaultCostLedger } from "@/src/services/cost-ledger";
 import type { LocalAssetStore } from "@/src/services/local-asset-store";
 import { createDefaultLocalAssetStore } from "@/src/services/local-asset-store";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
 
 export type GenerateDemoImageInput = {
   taskId: string;
@@ -106,6 +107,7 @@ export function createDemoImageProvider(options: {
 export async function generateDemoImage(
   input: GenerateDemoImageInput
 ): Promise<ImageProviderResult> {
+  await ensureAiConfigHydrated();
   const provider =
     input.provider ??
     createDemoImageProvider({ imageStore: input.imageStore, imageModel: input.imageModel });
@@ -180,6 +182,7 @@ export type PopTemplateSceneResult = {
 export async function generatePopTemplateScene(
   input: GeneratePopTemplateSceneInput
 ): Promise<PopTemplateSceneResult> {
+  await ensureAiConfigHydrated();
   const template = getPopTemplate(input.templateId);
   const product = input.product;
   if (!product) {
@@ -437,6 +440,7 @@ export type LocalizeImageResult = ImageProviderResult & { sourceUrl: string };
 export async function localizeGeneratedImage(
   input: LocalizeImageInput
 ): Promise<LocalizeImageResult> {
+  await ensureAiConfigHydrated();
   const provider =
     input.provider ??
     createDemoImageProvider({ imageStore: input.imageStore, imageModel: input.imageModel });

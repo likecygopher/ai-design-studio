@@ -303,30 +303,40 @@ select {
 /* Only AI generation actions use the solid optical treatment. */
 button[data-generate-action="true"] {
   border-color: rgba(157, 222, 247, 0.88) !important;
-  background-color: #005ab0 !important;
-  background-image:
-    radial-gradient(ellipse 72% 150% at 2% 50%, rgba(15, 123, 225, 0.98) 0%, rgba(79, 153, 255, 0.58) 42%, rgba(79, 153, 255, 0) 74%),
-    radial-gradient(ellipse 64% 140% at 98% 50%, rgba(255, 221, 183, 0.72) 0%, rgba(255, 239, 226, 0.38) 42%, rgba(255, 221, 183, 0) 76%),
-    radial-gradient(ellipse 48% 76% at 50% 114%, rgba(243, 251, 255, 1) 0%, rgba(157, 222, 247, 0.82) 44%, rgba(157, 222, 247, 0) 80%),
-    linear-gradient(180deg, #0f7be1 0%, #005ab0 56%, #04498b 100%) !important;
-  background-blend-mode: screen, screen, screen, normal !important;
+  background: linear-gradient(180deg, #0f7be1 0%, #005ab0 58%, #04498b 100%) !important;
+  background-image: linear-gradient(180deg, #0f7be1 0%, #005ab0 58%, #04498b 100%) !important;
   color: #f3fbff !important;
   text-shadow: 0 1px 1px rgba(0, 26, 66, 0.34);
-  box-shadow:
-    inset 0 1px 0 rgba(243, 251, 255, 0.94),
-    inset 0 0 30px rgba(222, 254, 255, 0.8),
-    inset 0 0 60px rgba(189, 212, 255, 0.72),
-    0 5px 12px rgba(0, 26, 66, 0.24) !important;
+  box-shadow: inset 0 1px 0 rgba(243, 251, 255, 0.7), 0 5px 12px rgba(0, 26, 66, 0.2) !important;
   backdrop-filter: none !important;
   -webkit-backdrop-filter: none !important;
 }
 
 button[data-generate-action="true"]:hover:not(:disabled) {
-  border-color: #f3fbff !important;
-  filter: brightness(1.06) saturate(1.05);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 1),
-    inset 0 0 34px rgba(222, 254, 255, 0.9),
-    inset 0 0 66px rgba(189, 212, 255, 0.82),
-    0 7px 16px rgba(0, 26, 66, 0.3) !important;
+  border-color: #46545a !important;
+  background: linear-gradient(180deg, #46545a, #2a353b) !important;
+  background-image: linear-gradient(180deg, #46545a, #2a353b) !important;
+  color: #fff !important;
+  filter: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.28), 0 5px 12px rgba(30, 43, 50, 0.16) !important;
+
+}
+
+/* Submit-type buttons share the dark metal gradient; other controls keep their own treatment. */
+button[type="submit"]:not([data-generate-action="true"]) {
+  border: 1px solid #303b40 !important;
+  background: linear-gradient(180deg, #37444a, #202a30) !important;
+  background-image: linear-gradient(180deg, #37444a, #202a30) !important;
+  color: #ffffff !important;
+  text-shadow: none;
+  box-shadow: inset 0 1px 1px rgba(255, 255, 255, 0.25), 0 3px 9px rgba(30, 43, 50, 0.12) !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+button[type="submit"]:not([data-generate-action="true"]):hover:not(:disabled) {
+  border-color: #46545a !important;
+  background: linear-gradient(180deg, #46545a, #2a353b) !important;
+  background-image: linear-gradient(180deg, #46545a, #2a353b) !important;
+  color: #ffffff !important;
 }

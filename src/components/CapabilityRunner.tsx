@@ -8,6 +8,7 @@ import {
 } from "@/src/domain/competition-tasks";
 import type { ProductWithProfile } from "@/src/domain/types";
 import { DEFAULT_IMAGE_MODEL_CHOICE, type ImageModelChoice } from "@/src/domain/generation-models";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import { ImageModelSelector } from "./ImageModelSelector";
 import { mapWithConcurrency } from "@/src/lib/concurrency";
 import type { CompetitionOutputArtifact } from "@/src/services/competition-runner";
@@ -23,6 +24,7 @@ type RunState = {
 
 /** One generation capability as a standalone page: pick a product, generate, watch progress. */
 export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
+  const { t } = useI18n();
   const task = getCompetitionTaskSpec(taskId);
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -78,7 +80,9 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
           return { ...current, completed: current.completed + 1, outputs };
         });
       } catch (error) {
-        errors.push(`${spec.label}: ${error instanceof Error ? error.message : "失败"}`);
+        errors.push(
+          `${spec.label}: ${error instanceof Error ? error.message : t("失败")}`
+        );
         setRun((current) => ({ ...current, completed: current.completed + 1 }));
       }
     });
@@ -94,8 +98,11 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
     return (
       <section style={panelStyle}>
         <p style={{ margin: 0 }}>
-          还没有产品。请先到 <a href="/assets" style={{ color: "var(--accent-strong)" }}>素材库</a>{" "}
-          创建产品并上传素材,再回到本页生成。
+          {t("还没有产品。请先到")}{" "}
+          <a href="/assets" style={{ color: "var(--accent-strong)" }}>
+            {t("素材库")}
+          </a>{" "}
+          {t("创建产品并上传素材,再回到本页生成。")}
         </p>
       </section>
     );
@@ -112,7 +119,7 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
         </div>
         <div style={{ display: "grid", gap: 8, minWidth: 280 }}>
           <label style={{ display: "grid", gap: 6, fontWeight: 700 }}>
-            目标产品
+            {t("目标产品")}
             <select value={productId} onChange={(event) => setProductId(event.target.value)}>
               {products.map((product) => (
                 <option key={product.id} value={product.id}>
@@ -128,8 +135,10 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
           />
           {selectedProduct ? (
             <span style={{ color: "var(--muted)", fontSize: 12 }}>
-              素材 {selectedProduct.assets.length} 项 · 卖点{" "}
-              {selectedProduct.profile.detectedFeatures.length} 条
+              {t("素材 {count} 项 · 卖点 {features} 条", {
+                count: selectedProduct.assets.length,
+                features: selectedProduct.profile.detectedFeatures.length
+              })}
             </span>
           ) : null}
           <button
@@ -146,7 +155,11 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
             ) : (
               <Play aria-hidden size={16} />
             )}
-            {run.state === "running" ? "生成中…" : run.state === "done" ? "重新生成" : "开始生成"}
+            {run.state === "running"
+              ? t("生成中…")
+              : run.state === "done"
+                ? t("重新生成")
+                : t("开始生成")}
           </button>
         </div>
       </section>
@@ -154,7 +167,7 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
       {run.state === "running" ? (
         <section aria-label="生成进度" style={panelStyle}>
           <div style={{ color: "var(--accent-strong)", fontSize: 13, fontWeight: 700, marginBottom: 6 }}>
-            并行生成中 {run.completed}/{total}
+            {t("并行生成中 {completed}/{total}", { completed: run.completed, total })}
           </div>
           <div style={{ background: "#e5e8ec", borderRadius: 999, height: 8, overflow: "hidden" }}>
             <div
@@ -172,7 +185,8 @@ export function CapabilityRunner({ taskId }: { taskId: CompetitionTaskId }) {
 
       {run.error ? (
         <section style={{ ...panelStyle, background: "#fdecec", color: "#8f1f1f" }}>
-          部分输出失败:{run.error}
+          {t("部分输出失败:")}
+          {run.error}
         </section>
       ) : null}
 

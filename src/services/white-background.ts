@@ -9,6 +9,7 @@ import { createDemoImageProvider } from "./demo-api";
 import { createProxyDispatcher, fetchOpenAi, type ImageProvider, type SourceImage } from "./image-provider";
 import type { LocalAssetStore } from "./local-asset-store";
 import type { CostLedger } from "./cost-ledger";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
 
 export async function padWhiteBackgroundImage(bytes: Buffer, dimensions: { width: number; height: number }, whiteBackground: boolean): Promise<Buffer> {
   if (![dimensions.width, dimensions.height].every((value) => Number.isInteger(value) && value >= 1 && value <= 4096)) throw new Error("输出尺寸超出范围。");
@@ -20,6 +21,7 @@ export async function padWhiteBackgroundImage(bytes: Buffer, dimensions: { width
 }
 
 export async function renderWhiteBackgroundOutput(input: WhiteBackgroundRequest, dependencies: { imageStore: LocalAssetStore; provider?: ImageProvider; costLedger?: CostLedger }): Promise<WhiteBackgroundOutput> {
+  await ensureAiConfigHydrated();
   const sourceImages: SourceImage[] = [];
   for (const id of input.referenceAssetIds) {
     const file = await dependencies.imageStore.readAssetBytes(id);

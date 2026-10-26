@@ -136,10 +136,21 @@
 .sidebarFooter {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 18px 10px 0;
   color: rgba(19, 37, 49, 0.68);
   font-size: 11px;
+}
+
+.logoutButton {
+  margin-left: auto;
+  border: 0;
+  border-radius: 999px;
+  padding: 4px 8px;
+  background: rgba(255, 255, 255, 0.35);
+  color: inherit;
+  cursor: pointer;
 }
 
 .onlineDot {
@@ -154,7 +165,7 @@
   min-width: 0;
   min-height: 0;
   overflow: auto;
-  padding: 28px 32px 36px;
+  padding: 62px 32px 36px;
   color: var(--text);
   scrollbar-color: rgba(0, 40, 76, 0.28) transparent;
   scrollbar-width: thin;
@@ -195,7 +206,7 @@
   opacity: 1;
 }
 
-.main :global(button),
+.main :global(button:not([data-admin-action="primary"]):not([data-account-action="primary"]):not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([aria-checked="true"])),
 .main :global(a[class*="Button"]),
 .main :global(label[class*="Button"]) {
   border-color: rgba(255, 255, 255, 0.64) !important;
@@ -207,10 +218,21 @@
   -webkit-backdrop-filter: blur(18px) saturate(126%);
 }
 
-.main :global(button:hover:not(:disabled)),
+.main :global(button:not([data-admin-action="primary"]):not([data-account-action="primary"]):not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([aria-checked="true"]):hover:not(:disabled)),
 .main :global(a[class*="Button"]:hover),
 .main :global(label[class*="Button"]:hover) {
   background: rgba(255, 255, 255, 0.28) !important;
+}
+
+/* Primary/dark buttons keep their own background; only brightness feedback. */
+.main :global(button[class*="primary"]:hover:not(:disabled)),
+.main :global(button[class*="Primary"]:hover:not(:disabled)),
+.main :global(button[class*="tabActive"]:hover:not(:disabled)),
+.main :global(button[class*="activeTab"]:hover:not(:disabled)),
+.main :global(button[class*="generateButton"]:hover:not(:disabled)),
+.main :global(button[class*="primaryButton"]:hover:not(:disabled)),
+.main :global(button[aria-checked="true"]:hover:not(:disabled)) {
+  filter: brightness(1.08);
 }
 
 .main :global(button[class*="secondaryButton"]),
@@ -242,14 +264,15 @@
 
 .main :global(button[class*="generateButton"]),
 .main :global(button[class*="primaryButton"]) {
-  border-color: var(--accent-border) !important;
-  background: rgba(0, 73, 187, 0.7) !important;
+  border-color: #303b40 !important;
+  background: linear-gradient(180deg, #37444a, #202a30) !important;
   color: #ffffff;
 }
 
 .main :global(button[class*="generateButton"]:hover:not(:disabled)),
 .main :global(button[class*="primaryButton"]:hover:not(:disabled)) {
-  background: rgba(0, 44, 121, 0.82) !important;
+  background: linear-gradient(180deg, #46545a, #2a353b) !important;
+  color: #ffffff !important;
 }
 
 .main :global(button[aria-pressed="true"]),
@@ -514,7 +537,7 @@
 }
 
 .main {
-  padding: 28px 30px 38px;
+  padding: 62px 30px 38px;
   font-size: 11px;
   line-height: 1.65;
 }
@@ -602,7 +625,7 @@
   line-height: 42px !important;
 }
 
-.main :global(button),
+.main :global(button:not([data-admin-action="primary"]):not([data-account-action="primary"]):not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([aria-checked="true"])),
 .main :global(a[class*="Button"]),
 .main :global(label[class*="Button"]) {
   border-color: rgba(0, 73, 187, 0.52) !important;
@@ -612,7 +635,7 @@
   line-height: 1.35 !important;
 }
 
-.main :global(button:hover:not(:disabled)),
+.main :global(button:not([data-admin-action="primary"]):not([data-account-action="primary"]):not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([aria-checked="true"]):hover:not(:disabled)),
 .main :global(a[class*="Button"]:hover),
 .main :global(label[class*="Button"]:hover) {
   border-color: rgba(0, 44, 121, 0.72) !important;
@@ -630,14 +653,14 @@
 
 .main :global(button[class*="generateButton"]),
 .main :global(button[class*="primaryButton"]) {
-  border-color: var(--accent-border) !important;
-  background: rgba(0, 73, 187, 0.78) !important;
-  color: #f7faff !important;
+  border-color: #303b40 !important;
+  background: linear-gradient(180deg, #37444a, #202a30) !important;
+  color: #ffffff !important;
 }
 
 .main :global(button[class*="generateButton"]:hover:not(:disabled)),
 .main :global(button[class*="primaryButton"]:hover:not(:disabled)) {
-  background: rgba(0, 44, 121, 0.9) !important;
+  background: linear-gradient(180deg, #46545a, #2a353b) !important;
   color: #ffffff !important;
 }
 
@@ -1023,7 +1046,7 @@
   border-radius: 8px !important;
 }
 
-.main :global(button:not([data-generate-action="true"])),
+.main :global(button:not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="primaryButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([data-admin-action="primary"]):not([data-account-action="primary"])),
 .main :global(a[class*="Button"]),
 .main :global(label[class*="Button"]) {
   border-color: rgba(255, 255, 255, 0.68) !important;
@@ -1038,7 +1061,7 @@
   transition: border-color 150ms ease, background-color 150ms ease, box-shadow 150ms ease;
 }
 
-.main :global(button:not([data-generate-action="true"]):hover:not(:disabled)),
+.main :global(button:not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="primaryButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([data-admin-action="primary"]):not([data-account-action="primary"]):hover:not(:disabled)),
 .main :global(a[class*="Button"]:hover),
 .main :global(label[class*="Button"]:hover) {
   border-color: rgba(255, 255, 255, 0.88) !important;
@@ -1145,7 +1168,7 @@
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23464c51' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
 }
 
-.main :global(button:not([data-generate-action="true"])),
+.main :global(button:not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="primaryButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([data-admin-action="primary"]):not([data-account-action="primary"])),
 .main :global(a[class*="Button"]),
 .main :global(label[class*="Button"]) {
   border: 1px solid transparent !important;
@@ -1170,7 +1193,7 @@
   transition: background-color 90ms ease, box-shadow 90ms ease, filter 90ms ease;
 }
 
-.main :global(button:not([data-generate-action="true"]):hover:not(:disabled)),
+.main :global(button:not([data-generate-action="true"]):not([class*="primary"]):not([class*="Primary"]):not([class*="generateButton"]):not([class*="primaryButton"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="submit"]):not([class*="dangerButton"]):not([class*="deleteButton"]):not([data-admin-action="primary"]):not([data-account-action="primary"]):hover:not(:disabled)),
 .main :global(a[class*="Button"]:hover),
 .main :global(label[class*="Button"]:hover) {
   background:
@@ -1193,7 +1216,7 @@
 
 .main :global(button[aria-pressed="true"]:not([data-generate-action="true"])),
 .main :global(button[aria-selected="true"]:not([data-generate-action="true"])),
-.main :global(button[class*="Active"]:not([data-generate-action="true"])) {
+.main :global(button[class*="Active"]:not([data-generate-action="true"]):not([class*="tabActive"]):not([class*="activeTab"]):not([class*="primary"]):not([class*="Primary"])) {
   border-color: transparent !important;
   background:
     linear-gradient(
@@ -1215,4 +1238,258 @@
     height: auto;
     min-height: calc(100dvh - 24px);
   }
+}
+
+/* Session summary: email + role badge in the compact sidebar footer (SPEC R8.3). */
+.userEmail {
+  min-width: 0;
+  max-width: 92px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.roleBadge {
+  flex: 0 0 auto;
+  padding: 1px 7px;
+  border: 1px solid rgba(0, 73, 187, 0.28);
+  border-radius: 999px;
+  background: rgba(79, 153, 255, 0.16);
+  color: #1c4a7a;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.roleBadge[data-role="admin"] {
+  border-color: rgba(151, 63, 63, 0.32);
+  background: rgba(255, 196, 84, 0.3);
+  color: #6b4a00;
+}
+
+/* ---------------------------------------------------------------------------
+   Unified form controls (final layer).
+   Earlier shell phases forced 42px selects, 10px fonts and mixed paddings, which
+   made inputs look inconsistent and abrupt next to buttons. This final block
+   gives every text input / select / textarea one height, radius, border, glass
+   background and gold focus ring, and styles the native file picker.
+--------------------------------------------------------------------------- */
+.main :global(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"])),
+.main :global(select),
+.main :global(textarea) {
+  height: 34px !important;
+  min-height: 34px !important;
+  padding: 0 10px !important;
+  border: 1px solid rgba(88, 113, 141, 0.22) !important;
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, 0.56) !important;
+  color: var(--text) !important;
+  font-size: 11.5px !important;
+  line-height: 1.45 !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.6) !important;
+  backdrop-filter: blur(12px) saturate(120%) !important;
+  -webkit-backdrop-filter: blur(12px) saturate(120%) !important;
+  transition: border-color 140ms ease, background-color 140ms ease, box-shadow 140ms ease;
+}
+
+.main :global(textarea) {
+  height: auto !important;
+  min-height: 68px !important;
+  padding: 8px 10px !important;
+  resize: vertical !important;
+  line-height: 1.6 !important;
+}
+
+.main :global(select) {
+  width: 100% !important;
+  appearance: none !important;
+  -webkit-appearance: none !important;
+  padding: 0 28px 0 10px !important;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.5 6 6l4.5-4.5' fill='none' stroke='%23464c51' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") !important;
+  background-position: calc(100% - 10px) 50% !important;
+  background-repeat: no-repeat !important;
+  background-size: 10px 7px !important;
+  background-color: rgba(255, 255, 255, 0.56) !important;
+  cursor: pointer !important;
+}
+
+.main :global(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):focus),
+.main :global(select:focus),
+.main :global(textarea:focus) {
+  outline: none !important;
+  border-color: rgba(184, 145, 75, 0.72) !important;
+  background: rgba(255, 255, 255, 0.86) !important;
+  box-shadow: 0 0 0 3px rgba(184, 145, 75, 0.16) !important;
+}
+
+.main :global(input:not([type="range"]):not([type="checkbox"]):not([type="radio"]):not([type="file"]):disabled),
+.main :global(select:disabled),
+.main :global(textarea:disabled) {
+  opacity: 0.6 !important;
+  cursor: not-allowed !important;
+}
+
+.main :global(input::placeholder),
+.main :global(textarea::placeholder) {
+  color: var(--muted-soft) !important;
+  opacity: 1 !important;
+  font-size: 11.5px !important;
+}
+
+/* Native file input: hide the default control look, keep a compact pill button. */
+.main :global(input[type="file"]) {
+  max-width: 100%;
+  padding: 0 !important;
+  border: 0 !important;
+  background: transparent !important;
+  color: var(--muted) !important;
+  font-size: 10.5px !important;
+  line-height: 1.6 !important;
+  cursor: pointer;
+}
+
+.main :global(input[type="file"]::file-selector-button) {
+  margin-right: 9px;
+  padding: 5px 11px;
+  border: 1px solid rgba(88, 113, 141, 0.26);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.6);
+  color: var(--text);
+  font-family: inherit;
+  font-size: 10.5px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background-color 140ms ease, border-color 140ms ease;
+}
+
+.main :global(input[type="file"]::file-selector-button:hover) {
+  border-color: rgba(184, 145, 75, 0.6);
+  background: rgba(255, 255, 255, 0.86);
+}
+
+.main :global(input[type="checkbox"]),
+.main :global(input[type="radio"]) {
+  width: 14px !important;
+  height: 14px !important;
+  margin-right: 6px;
+  accent-color: #b8914b !important;
+  vertical-align: -2px;
+}
+
+/* Keep inline label rows compact when they contain a control. */
+.main :global(label) {
+  line-height: 1.6;
+}
+
+/* Admin panels: opt back into the dark pill action style (see AdminUsers). */
+.main :global(button[data-admin-action="primary"]) {
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 9px 16px !important;
+  background: linear-gradient(180deg, #37444a, #202a30) !important;
+  background-image: linear-gradient(180deg, #37444a, #202a30) !important;
+  color: #fff !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.main :global(button[data-admin-action="primary"]:hover:not(:disabled)) {
+  background: linear-gradient(180deg, #46545a, #2a353b) !important;
+  background-image: linear-gradient(180deg, #46545a, #2a353b) !important;
+  border-color: #46545a !important;
+  color: #fff !important;
+}
+
+.main :global(button[data-admin-action="secondary"]) {
+  border: 1px solid rgba(56, 81, 111, 0.26) !important;
+  border-radius: 999px !important;
+  padding: 8px 14px !important;
+  background: rgba(255, 255, 255, 0.4) !important;
+  background-image: none !important;
+  color: var(--text) !important;
+  font-size: 12px !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+.main :global(button[data-admin-action="secondary"]:hover:not(:disabled)) {
+  background: rgba(255, 255, 255, 0.62) !important;
+}
+
+/* Compact workspace: maximise the operation area (B2B density). */
+.stage[data-layout="compact"] {
+  padding: 0;
+  place-items: stretch;
+}
+
+.stage[data-layout="compact"] .background {
+  inset: 0;
+}
+
+.workbench[data-layout="compact"] {
+  width: 100vw;
+  max-width: none;
+  height: 100dvh;
+  aspect-ratio: auto;
+  grid-template-columns: 212px minmax(0, 1fr);
+  border: 0;
+  border-radius: 0;
+  background: rgba(249, 251, 252, 0.97);
+  box-shadow: none;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+.workbench[data-layout="compact"] .sidebar {
+  padding: 14px 10px 10px;
+  border-right: 1px solid rgba(15, 31, 45, 0.1);
+  background: rgba(255, 255, 255, 0.82);
+}
+
+.workbench[data-layout="compact"] .brand {
+  margin: 0 8px 14px;
+  gap: 2px;
+}
+
+.workbench[data-layout="compact"] .brand span {
+  font-size: 9px;
+}
+
+.workbench[data-layout="compact"] .brand strong {
+  font-size: 17px;
+}
+
+.workbench[data-layout="compact"] .main {
+  padding: 56px 16px 18px;
+  background: #f6f8fa;
+}
+
+.workbench[data-layout="compact"] .settingsDock {
+  top: 10px;
+  right: 12px;
+}
+
+.settingsDock {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Generation CTAs remain blue; only submit/confirm buttons use the dark gradient. */
+.main :global(button[class*="generateButton"]),
+.main :global(button[data-generate-action="true"]) {
+  border-color: rgba(157, 222, 247, 0.88) !important;
+  background: linear-gradient(180deg, #0f7be1 0%, #005ab0 58%, #04498b 100%) !important;
+  background-image: linear-gradient(180deg, #0f7be1 0%, #005ab0 58%, #04498b 100%) !important;
+  color: #f3fbff !important;
+  text-shadow: 0 1px 1px rgba(0, 26, 66, 0.3);
+}
+.main :global(button[class*="generateButton"]:hover:not(:disabled)),
+.main :global(button[data-generate-action="true"]:hover:not(:disabled)) {
+  background: linear-gradient(180deg, #1a8cf2 0%, #0064c8 58%, #06539a 100%) !important;
+  background-image: linear-gradient(180deg, #1a8cf2 0%, #0064c8 58%, #06539a 100%) !important;
+  color: #fff !important;
+  filter: brightness(1.04);
 }

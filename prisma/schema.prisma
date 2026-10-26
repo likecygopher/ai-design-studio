@@ -1,0 +1,519 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id                  String   @id @default(cuid())
+  email               String   @unique
+  name                String?
+  passwordHash        String
+  role                String   @default("user")
+  /// Disabled accounts cannot sign in and existing sessions are rejected.
+  disabled            Boolean  @default(false)
+  /// Incremented on password reset/change; stale JWTs carrying an older value
+  /// are rejected, which revokes existing sessions without a session store.
+  authVersion         Int      @default(0)
+  /// SSO identity link (OIDC provider id + subject).
+  ssoProvider         String?
+  ssoSubject          String?
+  /// Monthly AI usage budget in estimated units. null = platform default; 0 = unlimited.
+  monthlyBudgetUnits  Int?
+  /// When true, this user's new jobs wait for admin approval before execution.
+  requiresJobApproval Boolean  @default(false)
+  /// AES-256-GCM encrypted TOTP secret (2FA). Set during setup, active only when totpEnabled.
+  totpSecret          String?
+  totpEnabled         Boolean  @default(false)
+  /// SHA-256 hashes of unused recovery codes (one-time use).
+  totpRecoveryCodes   Json     @default("[]")
+  createdAt           DateTime @default(now())
+  updatedAt           DateTime @updatedAt
+
+  settings         UserSettings?
+  products         Product[]
+  assets           Asset[]
+  jobs             GenerationJob[]
+  costRecords      CostRecord[]
+  auditLogs        AuditLog[]
+  sessions         AuthSession[]
+  apiTokens        ApiToken[]
+  webhookEndpoints WebhookEndpoint[]
+  plan             Plan?                @relation(fields: [planId], references: [id])
+  planId           String?
+  /// Active organization (personal organization by default).
+  organizationId   String?
+  marketplaceItems MarketplaceItem[]
+  userTemplates    UserTemplate[]
+  organization     Organization?        @relation("ActiveOrganization", fields: [organizationId], references: [id], onDelete: SetNull)
+  memberships      OrganizationMember[]
+  scimIdentities   ScimExternalUser[]
+
+  @@unique([ssoProvider, ssoSubject])
+}
+
+model UserSettings {
+  userId   String @id
+  country  String @default("Mexico")
+  language String @default("Spanish")
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Product {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String
+  name           String
+  category       String
+  brand          String?
+  modelName      String?
+  sellingPoints  Json     @default("[]")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  assets       Asset[]
+
+  @@index([organizationId])
+  @@index([userId, createdAt])
+}
+
+model Asset {
+  id             String   @id @default(cuid())
+  organizationId String?
+  userId         String
+  productId      String?
+  projectId      String   @default("project-user-workspace")
+  type           String
+  filename       String
+  url            String
+  storageKey     String
+  source         String
+  contentType    String?
+  metadata       Json?
+  sizeBytes      Int      @default(0)
+  createdAt      DateTime @default(now())
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  product      Product?      @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([organizationId])
+  @@index([userId, productId])
+  @@index([userId, createdAt])
+}
+
+enum JobStatus {
+  queued
+  running
+  succeeded
+  failed
+  cancelled
+}
+
+model GenerationJob {
+  id               String    @id @default(cuid())
+  organizationId   String?
+  userId           String
+  type             String
+  status           JobStatus @default(queued)
+  priority         Int       @default(0)
+  progress         Int       @default(0)
+  payload          Json
+  result           Json?
+  error            String?
+  attempts         Int       @default(0)
+  maxAttempts      Int       @default(3)
+  idempotencyKey   String?
+  nextAttemptAt    DateTime?
+  cancelledAt      DateTime?
+  lockedAt         DateTime?
+  lockedBy         String?
+  /// Approval gate: when `requiresApproval` is true the worker only claims it
+  /// after an admin sets `approvedAt`.
+  requiresApproval Boolean   @default(false)
+  approvedAt       DateTime?
+  approvedBy       String?
+  approvalNote     String?
+  startedAt        DateTime?
+  finishedAt       DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, idempotencyKey])
+  @@index([organizationId])
+  @@index([status, priority, createdAt])
+  @@index([status, nextAttemptAt])
+  @@index([status, lockedAt])
+  @@index([userId, status, createdAt])
+}
+
+model CostRecord {
+  id             String   @id @default(cuid())
+  userId         String
+  jobId          String?
+  taskId         String
+  task           String
+  model          String
+  mode           String
+  country        String
+  language       String
+  estimatedUnits Float
+  isFallback     Boolean  @default(false)
+  sourceAssetIds Json     @default("[]")
+  createdAt      DateTime @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+model AuditLog {
+  id         String   @id @default(cuid())
+  userId     String?
+  actorRole  String?
+  action     String
+  targetType String?
+  targetId   String?
+  metadata   Json?
+  ip         String?
+  requestId  String?
+  createdAt  DateTime @default(now())
+
+  user User? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+  @@index([userId, createdAt])
+  @@index([action, createdAt])
+}
+
+model WorkerHeartbeat {
+  id          String   @id
+  startedAt   DateTime @default(now())
+  lastSeenAt  DateTime @updatedAt
+  concurrency Int
+  activeJobs  Int      @default(0)
+
+  @@index([lastSeenAt])
+}
+
+model PlatformSetting {
+  key       String   @id
+  value     Json
+  updatedBy String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([updatedAt])
+}
+
+model AiProvider {
+  id                  String    @id @default(cuid())
+  name                String
+  /// Implementation channel: "openai-compatible" | "ark".
+  channel             String
+  baseUrl             String    @default("")
+  proxyUrl            String?
+  /// AES-256-GCM encrypted API key (see src/platform/secrets.ts).
+  apiKeyCipher        String?
+  /// Model mapping, e.g. { image, text, vision, video, videoEndpoint }.
+  models              Json      @default("{}")
+  enabled             Boolean   @default(true)
+  /// Lower value wins within a channel; the first enabled provider is applied.
+  priority            Int       @default(100)
+  lastTestAt          DateTime?
+  lastTestOk          Boolean?
+  lastTestNote        String?
+  /// Job-level usage counters and consecutive failure tracking (failover input).
+  successCount        Int       @default(0)
+  failureCount        Int       @default(0)
+  consecutiveFailures Int       @default(0)
+  lastFailureAt       DateTime?
+  lastFailureReason   String?
+  createdAt           DateTime  @default(now())
+  updatedAt           DateTime  @updatedAt
+
+  @@index([channel, enabled, priority])
+  @@index([updatedAt])
+}
+
+/// Server-side session tracking on top of the NextAuth JWT. The JWT carries the
+/// session id; revoking the row invalidates that device without rotating secrets.
+model AuthSession {
+  id         String    @id @default(cuid())
+  userId     String
+  userAgent  String?
+  ip         String?
+  createdAt  DateTime  @default(now())
+  lastSeenAt DateTime  @default(now())
+  revokedAt  DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+  @@index([lastSeenAt])
+}
+
+/// Hashed personal access tokens for machine-to-machine API calls.
+model ApiToken {
+  id         String    @id @default(cuid())
+  userId     String
+  name       String
+  /// Display prefix (first characters of the token); never the full token.
+  prefix     String
+  /// SHA-256 of the full token; the plaintext is shown once on creation.
+  tokenHash  String    @unique
+  scopes     Json      @default("[]")
+  lastUsedAt DateTime?
+  expiresAt  DateTime?
+  revokedAt  DateTime?
+  createdAt  DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, revokedAt])
+}
+
+/// HMAC-signed webhook endpoints for async job events.
+model WebhookEndpoint {
+  id                 String    @id @default(cuid())
+  userId             String
+  url                String
+  /// AES-256-GCM encrypted signing secret.
+  secretCipher       String
+  events             Json      @default("[]")
+  enabled            Boolean   @default(true)
+  lastDeliveryAt     DateTime?
+  lastDeliveryStatus String?
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  user       User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  deliveries WebhookDelivery[]
+
+  @@index([userId, enabled])
+}
+
+model WebhookDelivery {
+  id             String    @id @default(cuid())
+  endpointId     String
+  event          String
+  status         String    @default("pending")
+  responseStatus Int?
+  error          String?
+  /// Serialized JSON body for retry.
+  payload        String?
+  attempts       Int       @default(0)
+  nextAttemptAt  DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  endpoint WebhookEndpoint @relation(fields: [endpointId], references: [id], onDelete: Cascade)
+
+  @@index([endpointId, createdAt])
+}
+
+/// Commercial plan: quotas applied to members when no user-level override exists.
+model Plan {
+  id                 String   @id @default(cuid())
+  name               String   @unique
+  description        String?
+  /// null = fall through to platform default; 0 = unlimited.
+  monthlyBudgetUnits Int?
+  /// null = fall through to platform default.
+  maxActiveJobs      Int?
+  createdAt          DateTime @default(now())
+  updatedAt          DateTime @updatedAt
+
+  users User[]
+}
+
+/// User-published template/preset in the marketplace.
+model MarketplaceItem {
+  id          String   @id @default(cuid())
+  authorId    String
+  title       String
+  description String?
+  category    String
+  /// Reusable prompt / configuration payload.
+  prompt      String
+  coverUrl    String?
+  status      String   @default("pending")
+  reviewNote  String?
+  reviewedBy  String?
+  clones      Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  author User           @relation(fields: [authorId], references: [id], onDelete: Cascade)
+  copies UserTemplate[]
+
+  @@index([status, createdAt])
+  @@index([authorId])
+}
+
+/// A marketplace item cloned into a user's personal template library.
+model UserTemplate {
+  id        String   @id @default(cuid())
+  userId    String
+  itemId    String?
+  title     String
+  prompt    String
+  category  String
+  createdAt DateTime @default(now())
+
+  user User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item MarketplaceItem? @relation(fields: [itemId], references: [id], onDelete: SetNull)
+
+  @@index([userId, createdAt])
+}
+
+/// Team/organization owning shared products, assets and jobs.
+model Organization {
+  id         String    @id @default(cuid())
+  name       String
+  slug       String    @unique
+  /// Archived organizations are read-only and fall back to personal org.
+  archivedAt DateTime?
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+
+  members     OrganizationMember[]
+  products    Product[]
+  assets      Asset[]
+  jobs        GenerationJob[]
+  activeUsers User[]                 @relation("ActiveOrganization")
+  ssoConfig   OrganizationSsoConfig?
+  ssoStates   SsoLoginState[]
+  ssoTickets  SsoLoginTicket[]
+  scimUsers   ScimExternalUser[]
+  scimGroups  ScimGroup[]
+}
+
+model OrganizationMember {
+  id             String   @id @default(cuid())
+  organizationId String
+  userId         String
+  role           String   @default("member")
+  createdAt      DateTime @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([organizationId, userId])
+  @@index([userId])
+  @@index([organizationId])
+}
+
+/// Per-organization identity provider configuration.
+model OrganizationSsoConfig {
+  id                     String   @id @default(cuid())
+  organizationId         String   @unique
+  enabled                Boolean  @default(false)
+  protocol               String   @default("oidc")
+  displayName            String?
+  oidcIssuer             String?
+  oidcClientId           String?
+  oidcClientSecretCipher String?
+  samlEntryPoint         String?
+  samlIssuer             String?
+  samlCert               String?
+  /// JSON array of allowed email domains; empty = rely on IdP/org membership.
+  allowedDomains         Json     @default("[]")
+  autoProvision          Boolean  @default(true)
+  defaultRole            String   @default("member")
+  /// JSON map of IdP group name -> organization role (owner/admin/member).
+  groupRoleMap           Json     @default("{}")
+  scimEnabled            Boolean  @default(false)
+  scimTokenHash          String?
+  scimTokenPrefix        String?
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+}
+
+/// Short-lived OIDC/SAML login state (state/nonce/PKCE/RelayState).
+model SsoLoginState {
+  id             String    @id @default(cuid())
+  organizationId String
+  protocol       String
+  nonce          String?
+  codeVerifier   String?
+  returnTo       String?
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+
+  @@index([expiresAt])
+}
+
+/// One-time ticket bridging an external IdP login into the Auth.js session.
+model SsoLoginTicket {
+  id             String    @id @default(cuid())
+  tokenHash      String    @unique
+  userId         String
+  organizationId String?
+  protocol       String
+  expiresAt      DateTime
+  usedAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  organization Organization? @relation(fields: [organizationId], references: [id], onDelete: SetNull)
+
+  @@index([expiresAt])
+}
+
+/// SCIM-provisioned user mapped to a local account within an organization.
+model ScimExternalUser {
+  id             String   @id @default(cuid())
+  organizationId String
+  externalId     String
+  userId         String
+  userName       String
+  active         Boolean  @default(true)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  user         User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  groupMembers ScimGroupMember[]
+
+  @@unique([organizationId, externalId])
+  @@index([userId])
+}
+
+/// SCIM group; displayName/groupRoleMap decide the organization role.
+model ScimGroup {
+  id             String   @id @default(cuid())
+  organizationId String
+  externalId     String?
+  displayName    String
+  role           String?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  organization Organization      @relation(fields: [organizationId], references: [id], onDelete: Cascade)
+  members      ScimGroupMember[]
+
+  @@unique([organizationId, externalId])
+}
+
+model ScimGroupMember {
+  groupId String
+  userId  String
+
+  group ScimGroup        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  user  ScimExternalUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@id([groupId, userId])
+}

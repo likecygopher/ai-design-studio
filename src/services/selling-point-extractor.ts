@@ -4,6 +4,7 @@ import {
   fetchOpenAi,
   normalizeApiRoot
 } from "@/src/services/image-provider";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
 
 export const DEFAULT_TEXT_MODEL = "gpt-4o-mini";
 

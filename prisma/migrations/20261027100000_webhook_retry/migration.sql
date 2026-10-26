@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "WebhookDelivery" ADD COLUMN     "attempts" INTEGER NOT NULL DEFAULT 0,
+ADD COLUMN     "nextAttemptAt" TIMESTAMP(3),
+ADD COLUMN     "payload" TEXT,
+ADD COLUMN     "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+ALTER COLUMN "status" SET DEFAULT 'pending';
+

@@ -4,6 +4,7 @@ import {
   normalizeApiRoot,
   type SourceImage
 } from "@/src/services/image-provider";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
 
 export const DEFAULT_VISION_MODEL = "gpt-4o-mini";
 
@@ -34,6 +35,7 @@ export type ExtractIconViPromptInput = {
 export async function extractIconViPromptTemplate(
   input: ExtractIconViPromptInput
 ): Promise<IconViPromptResult> {
+  await ensureAiConfigHydrated();
   const apiKey = (input.apiKey ?? process.env.OPENAI_API_KEY ?? "").trim();
   const model =
     input.model ??

@@ -28,6 +28,9 @@ import {
 } from "lucide-react";
 import styles from "./GlassHomeStudio.module.css";
 import { StudioNavigation } from "./StudioNavigation";
+import { useI18n } from "@/src/i18n/I18nProvider";
+import { WorkspaceLayoutToggle } from "./WorkspaceLayoutToggle";
+import { useWorkspaceLayout } from "./useWorkspaceLayout";
 import { StudioSettings } from "./StudioSettings";
 import { getGlassTunerStyle, useGlassTunerSettings } from "./GlassTuner";
 import { useStudioBackground } from "./useStudioBackground";
@@ -58,6 +61,8 @@ const quickTools: StudioLink[] = [
 ];
 
 export function GlassHomeStudio() {
+  const { t } = useI18n();
+  const { compact } = useWorkspaceLayout();
   const quickScrollerRef = useRef<HTMLDivElement>(null);
   const { backgroundUrl } = useStudioBackground();
   const glass = useGlassTunerSettings();
@@ -88,10 +93,18 @@ export function GlassHomeStudio() {
   } as CSSProperties;
 
   return (
-    <main className={styles.stage} style={stageStyle}>
+    <main
+      className={styles.stage}
+      data-layout={compact ? "compact" : "comfortable"}
+      style={stageStyle}
+    >
       <div aria-hidden="true" className={styles.background} />
 
-      <section aria-label="Midea AI Content Studio 工作台" className={styles.workbench}>
+      <section
+        aria-label={t("Midea AI Content Studio 工作台")}
+        className={styles.workbench}
+        data-layout={compact ? "compact" : "comfortable"}
+      >
         <aside className={styles.sidebar}>          <div className={styles.brand}>
             <span className={styles.brandOverline}>Midea Overseas</span>
             <strong>AI Content Studio</strong>
@@ -101,14 +114,13 @@ export function GlassHomeStudio() {
 
           <div className={styles.sidebarFooter}>
             <span className={styles.onlineDot} />
-            在线生成模式
+            {t("在线生成模式")}
           </div>
         </aside>
 
         <div className={styles.content}>
           <header className={styles.topbar}>
             <div className={styles.heroCopy}>
-              <p className={styles.eyebrow}>Midea Overseas AI Content Studio</p>
               <h1>
                 <span>Hi,</span>
                 How Can I Help You?
@@ -117,13 +129,14 @@ export function GlassHomeStudio() {
 
             <div className={styles.topbarSide}>
               <div className={styles.utilityGrid}>
+                <WorkspaceLayoutToggle />
                 <StudioSettings glass={glass} />
                 <HomeInfoWidgets />
               </div>
             </div>
           </header>
 
-          <section aria-label="从产品开始" className={styles.startSection}>
+          <section aria-label={t("从产品开始")} className={styles.startSection}>
             <div className={styles.featureGrid}>
               <Link className={styles.featureCard + " " + styles.productFeature} href="/assets">
                 <span aria-hidden="true" className={styles.featureBackdrop} />
@@ -132,8 +145,8 @@ export function GlassHomeStudio() {
                     <ImageIcon size={19} />
                   </span>
                   <small>01 / PRODUCT INTAKE</small>
-                  <strong>上传产品素材</strong>
-                  <span>建立产品档案并识别卖点</span>
+                  <strong>{t("上传产品素材")}</strong>
+                  <span>{t("建立产品档案并识别卖点")}</span>
                 </span>
                 <ArrowUpRight className={styles.featureArrow} size={18} />
               </Link>
@@ -148,8 +161,8 @@ export function GlassHomeStudio() {
                     <SwatchBook size={19} />
                   </span>
                   <small>02 / STYLE SYSTEM</small>
-                  <strong>场景与风格</strong>
-                  <span>Keywords 驱动场景生成</span>
+                  <strong>{t("场景与风格")}</strong>
+                  <span>{t("Keywords 驱动场景生成")}</span>
                 </span>
                 <ArrowUpRight className={styles.featureArrow} size={18} />
               </Link>
@@ -163,20 +176,20 @@ export function GlassHomeStudio() {
                     <Globe2 size={19} />
                   </span>
                   <small>03 / GLOBAL DELIVERY</small>
-                  <strong>全球市场交付</strong>
-                  <span>图像文字批量本地化</span>
+                  <strong>{t("全球市场交付")}</strong>
+                  <span>{t("图像文字批量本地化")}</span>
                 </span>
                 <ArrowUpRight className={styles.featureArrow} size={18} />
               </Link>
             </div>
           </section>
 
-          <section aria-label="快捷创作" className={styles.toolsSection}>
-            <h2 className={styles.visuallyHidden}>快捷创作</h2>
+          <section aria-label={t("快捷创作")} className={styles.toolsSection}>
+            <h2 className={styles.visuallyHidden}>{t("快捷创作")}</h2>
             <label className={styles.quickSlider}>
-              <span className={styles.visuallyHidden}>快捷工具横向位置</span>
+              <span className={styles.visuallyHidden}>{t("快捷工具横向位置")}</span>
               <input
-                aria-label="快捷工具横向位置"
+                aria-label={t("快捷工具横向位置")}
                 max="100"
                 min="0"
                 onChange={(event) => setQuickScroll(Number(event.target.value))}
@@ -204,7 +217,7 @@ export function GlassHomeStudio() {
                         {String(index + 1).padStart(2, "0")}
                       </span>
                       <Icon size={20} strokeWidth={1.7} />
-                      <strong>{item.label}</strong>
+                      <strong>{t(item.label)}</strong>
                       <ArrowUpRight className={styles.quickArrow} size={15} />
                     </Link>
                   );
@@ -216,7 +229,7 @@ export function GlassHomeStudio() {
           <footer className={styles.contentFooter}>
             <span>Midea AI Content Studio</span>
             <Link href="/costs">
-              <FileImage size={14} /> 查看生成记录
+              <FileImage size={14} /> {t("查看生成记录")}
             </Link>
           </footer>
         </div>

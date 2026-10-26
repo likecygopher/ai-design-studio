@@ -22,6 +22,7 @@ import {
 } from "@/src/domain/generation-models";
 import type { Asset, AssetType } from "@/src/domain/types";
 import { mapWithConcurrency } from "@/src/lib/concurrency";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import { ImageModelSelector } from "./ImageModelSelector";
 import styles from "./IconDesignStudio.module.css";
 
@@ -76,6 +77,7 @@ const initialRunState: RunState = {
 };
 
 export function IconDesignStudio() {
+  const { t } = useI18n();
   const [assets, setAssets] = useState<Partial<Record<UploadSlotId, Asset>>>({});
   const [assetsLoaded, setAssetsLoaded] = useState(false);
   const [uploading, setUploading] = useState<UploadSlotId | null>(null);
@@ -104,7 +106,7 @@ export function IconDesignStudio() {
         }
         setAssets(restored);
       })
-      .catch(() => setMessage("无法读取已上传的 Icon Design 素材。"))
+      .catch(() => setMessage(t("无法读取已上传的 Icon Design 素材。")))
       .finally(() => setAssetsLoaded(true));
 
     return () => {
@@ -134,7 +136,7 @@ export function IconDesignStudio() {
       const payload = await response.json();
       const uploaded = payload.assets?.[0] as Asset | undefined;
       if (!response.ok || payload.error || !uploaded) {
-        throw new Error(payload.error ?? "上传失败");
+        throw new Error(payload.error ?? t("上传失败"));
       }
 
       if (previous?.source === "uploaded") {
@@ -142,9 +144,9 @@ export function IconDesignStudio() {
       }
       setAssets((current) => ({ ...current, [slot.id]: uploaded }));
       setRun(initialRunState);
-      setMessage(`${slot.label}已上传：${uploaded.filename}`);
+      setMessage(t("{label}已上传：{name}", { label: t(slot.label), name: uploaded.filename }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "上传失败");
+      setMessage(error instanceof Error ? error.message : t("上传失败"));
     } finally {
       setUploading(null);
     }
@@ -163,13 +165,13 @@ export function IconDesignStudio() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "删除素材失败");
+        throw new Error(payload.error ?? t("删除素材失败"));
       }
       setAssets((current) => ({ ...current, [slot.id]: undefined }));
       setRun(initialRunState);
-      setMessage(`${slot.label}已移除`);
+      setMessage(t("{label}已移除", { label: t(slot.label) }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除素材失败");
+      setMessage(error instanceof Error ? error.message : t("删除素材失败"));
     } finally {
       setUploading(null);
     }
@@ -199,7 +201,7 @@ export function IconDesignStudio() {
         });
         const payload = await response.json();
         if (!response.ok || payload.error || !payload.output) {
-          throw new Error(payload.error ?? `${variant.label}生成失败`);
+          throw new Error(payload.error ?? t("{label}生成失败", { label: t(variant.label) }));
         }
         setRun((current) => ({
           ...current,
@@ -207,7 +209,9 @@ export function IconDesignStudio() {
           outputs: sortOutputs([...current.outputs, payload.output as IconDesignOutput])
         }));
       } catch (error) {
-        errors.push(`${variant.label}：${error instanceof Error ? error.message : "生成失败"}`);
+        errors.push(
+          `${t(variant.label)}: ${error instanceof Error ? error.message : t("生成失败")}`
+        );
         setRun((current) => ({ ...current, completed: current.completed + 1 }));
       }
     });
@@ -223,8 +227,7 @@ export function IconDesignStudio() {
     <div className={styles.studio}>
       <section className={styles.controlBand}>
         <div className={styles.controlCopy}>
-          <span>BRAND ICON STANDARDIZATION</span>
-          <strong>上传 Icon · 输出 4 种官方颜色与 2 种版式</strong>
+          <strong>{t("4 种官方颜色 · 2 种版式")}</strong>
         </div>
         <div className={styles.controls}>
           <ImageModelSelector
@@ -248,8 +251,10 @@ export function IconDesignStudio() {
               <Play aria-hidden size={17} />
             )}
             {run.state === "running"
-              ? `生成中 ${run.completed}/${run.total}`
-              : `${run.outputs.length ? "重新生成" : "生成全部"} 6 个版本`}
+              ? t("生成中 {done}/{total}", { done: run.completed, total: run.total })
+              : run.outputs.length
+                ? t("重新生成 6 个版本")
+                : t("生成全部 6 个版本")}
           </button>
         </div>
       </section>
@@ -258,7 +263,7 @@ export function IconDesignStudio() {
         <div className={styles.sectionHeader}>
           <div>
             <span className={styles.step}>01</span>
-            <h2 id="content-heading">待规范化 Icon 与卖点</h2>
+            <h2 id="content-heading">{t("待规范化 Icon 与卖点")}</h2>
           </div>
         </div>
         <div className={styles.contentGrid}>
@@ -273,7 +278,7 @@ export function IconDesignStudio() {
           <label className={styles.titleField}>
             卖点标题
             <input
-              aria-label="卖点标题"
+              aria-label={t("卖点标题")}
               disabled={isBusy}
               maxLength={80}
               onChange={(event) => {
@@ -289,37 +294,37 @@ export function IconDesignStudio() {
       </section>
 
       {message ? <p className={styles.message}>{message}</p> : null}
-      {!assetsLoaded ? <p className={styles.message}>正在读取 Icon Design 素材…</p> : null}
+      {!assetsLoaded ? <p className={styles.message}>{t("正在读取 Icon Design 素材…")}</p> : null}
 
       {run.state === "running" ? (
-        <section aria-label="生成进度" className={styles.progressBand}>
+        <section aria-label={t("生成进度")} className={styles.progressBand}>
           <div>
             <Sparkles aria-hidden size={18} />
-            <strong>正在并行生成 {run.completed}/{run.total}</strong>
+            <strong>{t("正在并行生成 {done}/{total}", { done: run.completed, total: run.total })}</strong>
           </div>
           <div className={styles.progressTrack}>
             <div style={{ width: `${progressPercent}%` }} />
           </div>
         </section>
       ) : null}
-      {run.error ? <section className={styles.error}>部分输出失败：{run.error}</section> : null}
+      {run.error ? <section className={styles.error}>{t("部分输出失败：")}{run.error}</section> : null}
 
       <section className={styles.results} aria-labelledby="result-heading">
         <div className={styles.sectionHeader}>
           <div>
             <span className={styles.step}>02</span>
-            <h2 id="result-heading">规范化输出</h2>
+            <h2 id="result-heading">{t("规范化输出")}</h2>
           </div>
-          <span className={styles.resultCount}>{run.outputs.length}/6 已生成</span>
+          <span className={styles.resultCount}>{t("{done}/6 已生成", { done: run.outputs.length })}</span>
         </div>
         <OutputGroup
           outputsByVariant={outputsByVariant}
-          title="官方颜色样式"
+          title={t("官方颜色样式")}
           variants={ICON_DESIGN_VARIANTS.filter((variant) => variant.group === "color")}
         />
         <OutputGroup
           outputsByVariant={outputsByVariant}
-          title="官方图文版式"
+          title={t("官方图文版式")}
           variants={ICON_DESIGN_VARIANTS.filter((variant) => variant.group === "layout")}
         />
       </section>
@@ -335,21 +340,22 @@ function UploadAssetSlot(props: {
   onUpload(file: File): void;
   onRemove(): void;
 }) {
+  const { t } = useI18n();
   const { slot, asset, busy, loading, onUpload, onRemove } = props;
   return (
     <article className={styles.uploadSlot}>
       <header>
         <div>
           <span>{slot.caption}</span>
-          <strong>{slot.label}</strong>
+          <strong>{t(slot.label)}</strong>
         </div>
         {asset ? (
           <button
-            aria-label={`删除${slot.label}`}
+            aria-label={t("删除{label}", { label: t(slot.label) })}
             className={styles.iconButton}
             disabled={busy}
             onClick={onRemove}
-            title={`删除${slot.label}`}
+            title={t("删除{label}", { label: t(slot.label) })}
             type="button"
           >
             <Trash2 aria-hidden size={16} />
@@ -359,7 +365,7 @@ function UploadAssetSlot(props: {
       <div className={styles.assetPreview}>
         {asset ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={slot.label} src={asset.url} />
+          <img alt={t(slot.label)} src={asset.url} />
         ) : (
           <div className={styles.emptyPreview}>
             <ImagePlus aria-hidden size={28} />
@@ -368,17 +374,17 @@ function UploadAssetSlot(props: {
         )}
       </div>
       <footer>
-        <span title={asset?.filename}>{asset?.filename ?? "未上传"}</span>
+        <span title={asset?.filename}>{asset?.filename ?? t("未上传")}</span>
         <label className={styles.uploadButton}>
           {loading ? (
             <Loader2 aria-hidden className={styles.spinner} size={15} />
           ) : (
             <ImagePlus aria-hidden size={15} />
           )}
-          {asset ? "替换" : "上传"}
+          {asset ? t("替换") : t("上传")}
           <input
             accept="image/png,image/jpeg,image/webp"
-            aria-label={`上传${slot.label}`}
+            aria-label={t("上传{label}", { label: t(slot.label) })}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -423,6 +429,7 @@ function OutputCard({
   variant: IconDesignVariant;
   output?: IconDesignOutput;
 }) {
+  const { t } = useI18n();
   return (
     <article className={styles.outputCard}>
       <div
@@ -431,7 +438,7 @@ function OutputCard({
       >
         {output ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img alt={variant.label} src={output.url} />
+          <img alt={t(variant.label)} src={output.url} />
         ) : (
           <div className={styles.outputPlaceholder}>
             <span>{variant.id.replaceAll("-", " ")}</span>
@@ -441,14 +448,14 @@ function OutputCard({
       <div className={styles.outputMeta}>
         <div>
           {output ? <CheckCircle2 aria-hidden color="#0049bb" size={16} /> : null}
-          <strong>{variant.label}</strong>
+          <strong>{t(variant.label)}</strong>
         </div>
         <p>{variant.description}</p>
         {output ? (
           <>
             <span>{output.model}</span>
             <a href={output.url} rel="noreferrer" target="_blank">
-              <ExternalLink aria-hidden size={14} /> 打开原图
+              <ExternalLink aria-hidden size={14} /> {t("打开原图")}
             </a>
           </>
         ) : null}

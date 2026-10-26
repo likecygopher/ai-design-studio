@@ -32,7 +32,7 @@ export function StudioDialog({ title, children, onClose, busy = false }: { title
   return createPortal(
     <div className={styles.overlay} onMouseDown={event => { if (event.target === event.currentTarget && !busy) onClose(); }}>
       <div role="dialog" aria-modal="true" aria-labelledby={id} tabIndex={-1} className={styles.dialog} ref={panel}>
-        <header className={styles.header}><div><span>AI CONTENT STUDIO</span><h2 id={id}>{title}</h2></div><button aria-label={`关闭${title}`} disabled={busy} onClick={onClose} type="button"><X size={18} aria-hidden /></button></header>
+        <header className={styles.header}><div><h2 id={id}>{title}</h2></div><button aria-label={`关闭${title}`} disabled={busy} onClick={onClose} type="button"><X size={18} aria-hidden /></button></header>
         <div className={styles.body}>{children}</div>
       </div>
     </div>, document.body

@@ -68,14 +68,22 @@ describe("Cover HomePage", () => {
     const finaleButton = container.querySelector(".midea-finale .midea-start-button");
     expect(finaleButton?.textContent?.trim()).toBe("Start now");
     expect(finaleButton?.querySelector("span")).toBeNull();
+    // The cover platform area is now a static in-flow agent page: the floating
+    // reference collage was intentionally removed (see the "Static in-flow agent
+    // page" rules in app/cover.css), so the chat boundary must sit inside the
+    // in-flow agent section and the legacy collage containers must stay gone.
     expect(
-      container.querySelector(".brand-floating-collage > .cover-chat-boundary")
+      container.querySelector(
+        ".cover-agent-section > .cover-agent-inner > .cover-chat-boundary"
+      )
     ).not.toBeNull();
+    expect(container.querySelector(".brand-floating-collage")).toBeNull();
+    expect(container.querySelector(".brand-floating-grid")).toBeNull();
+    expect(
+      container.querySelector('[aria-label="brand.ai floating reference collage"]')
+    ).toBeNull();
     expect(container.querySelector("#agent")).not.toBeNull();
     expect(container.querySelector("#tutorial")).not.toBeNull();
     expect(container.querySelector("#details")).not.toBeNull();
-    expect(
-      screen.getByLabelText("brand.ai floating reference collage").querySelectorAll("img")
-    ).toHaveLength(16);
   });
 });

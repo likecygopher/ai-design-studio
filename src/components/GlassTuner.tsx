@@ -4,6 +4,7 @@ import type { CSSProperties, Dispatch, SetStateAction } from "react";
 import { useEffect, useState } from "react";
 import { Check, Copy, RotateCcw, SlidersHorizontal, X } from "lucide-react";
 import styles from "./GlassTuner.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 export const GLASS_TUNER_STORAGE_KEY = "midea-home-glass-tuner-v2";
 
@@ -201,6 +202,7 @@ export function GlassTuner({
   triggerClassName,
   embedded = false
 }: GlassTunerProps) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
   const [copied, setCopied] = useState(false);
   const serializedSettings = serializeGlassTunerSettings(settings);
@@ -245,18 +247,18 @@ export function GlassTuner({
         type="button"
       >
         <SlidersHorizontal size={18} />
-        <span>玻璃参数</span>
+        <span>{t("玻璃参数")}</span>
       </button> : null}
 
       {open || embedded ? (
-        <aside aria-label="毛玻璃参数调节" className={embedded ? styles.embeddedPanel : styles.panel}>
+        <aside aria-label={t("毛玻璃参数调节")} className={embedded ? styles.embeddedPanel : styles.panel}>
           <header className={styles.header}>
             <div>
               {!embedded ? <span>TEMP</span> : null}
-              <strong>毛玻璃参数</strong>
+              <strong>{t("毛玻璃参数")}</strong>
             </div>
             {!embedded ? <button
-              aria-label="关闭毛玻璃参数"
+              aria-label={t("关闭毛玻璃参数")}
               className={styles.iconButton}
               onClick={() => setOpen(false)}
               type="button"
@@ -267,12 +269,12 @@ export function GlassTuner({
 
           <div className={styles.colorGrid}>
             <ColorControl
-              label="主窗玻璃色"
+              label={t("主窗玻璃色")}
               onChange={(value) => updateSetting("frameColor", value)}
               value={settings.frameColor}
             />
             <ColorControl
-              label="内层玻璃色"
+              label={t("内层玻璃色")}
               onChange={(value) => updateSetting("surfaceColor", value)}
               value={settings.surfaceColor}
             />
@@ -280,7 +282,7 @@ export function GlassTuner({
 
           <div className={styles.rangeList}>
             <RangeControl
-              label="主窗透明度"
+              label={t("主窗透明度")}
               max={0.7}
               min={0}
               onChange={(value) => updateSetting("frameOpacity", value)}
@@ -288,7 +290,7 @@ export function GlassTuner({
               value={settings.frameOpacity}
             />
             <RangeControl
-              label="卡片透明度"
+              label={t("卡片透明度")}
               max={0.8}
               min={0}
               onChange={(value) => updateSetting("surfaceOpacity", value)}
@@ -296,7 +298,7 @@ export function GlassTuner({
               value={settings.surfaceOpacity}
             />
             <RangeControl
-              label="控件透明度"
+              label={t("控件透明度")}
               max={0.9}
               min={0}
               onChange={(value) => updateSetting("controlOpacity", value)}
@@ -304,7 +306,7 @@ export function GlassTuner({
               value={settings.controlOpacity}
             />
             <RangeControl
-              label="模糊强度"
+              label={t("模糊强度")}
               max={48}
               min={0}
               onChange={(value) => updateSetting("blur", value)}
@@ -313,7 +315,7 @@ export function GlassTuner({
               value={settings.blur}
             />
             <RangeControl
-              label="色彩饱和度"
+              label={t("色彩饱和度")}
               max={180}
               min={60}
               onChange={(value) => updateSetting("saturation", value)}
@@ -322,7 +324,7 @@ export function GlassTuner({
               value={settings.saturation}
             />
             <RangeControl
-              label="底图遮罩"
+              label={t("底图遮罩")}
               max={0.5}
               min={0}
               onChange={(value) => updateSetting("overlayOpacity", value)}
@@ -336,11 +338,11 @@ export function GlassTuner({
           <div className={styles.actions}>
             <button onClick={resetSettings} type="button">
               <RotateCcw size={15} />
-              恢复默认
+              {t("恢复默认")}
             </button>
             <button className={styles.copyButton} onClick={copySettings} type="button">
               {copied ? <Check size={15} /> : <Copy size={15} />}
-              {copied ? "已复制" : "复制参数"}
+              {copied ? t("已复制") : t("复制参数")}
             </button>
           </div>
         </aside>

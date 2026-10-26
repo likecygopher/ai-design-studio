@@ -1,4 +1,7 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { createUserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import { parseImageModelChoice } from "@/src/domain/generation-models";
 import {
   getCompetitionTaskSpec,
@@ -9,10 +12,6 @@ import {
   WHITE_BACKGROUND_SOURCE_TYPES
 } from "@/src/domain/white-background";
 import { runCompetitionOutput } from "@/src/services/competition-runner";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
-import { createDemoAssetStore } from "@/src/services/demo-api";
-import { createDefaultProductRegistry } from "@/src/services/product-registry";
-import { createDefaultSystemSettingsStore } from "@/src/services/system-settings";
 
 export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
@@ -25,9 +24,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Unknown capability: " + taskId }, { status: 400 });
   }
 
-  const imageStore = createDemoAssetStore();
+  const userId = await requireUserId();
+  const workspace = createUserWorkspace(userId);
+  const imageStore = workspace.imageStore;
   const product = body.productId
-    ? await createDefaultProductRegistry(imageStore).getProduct(String(body.productId))
+    ? await workspace.productRegistry.getProduct(String(body.productId))
     : null;
 
   if (!product) {
@@ -91,7 +92,7 @@ export async function POST(request: Request) {
   }
 
   try {
-    const locale = await createDefaultSystemSettingsStore().read();
+    const locale = await workspace.settingsStore.read();
     const result = await runCompetitionOutput({
       taskId,
       outputId,
@@ -101,7 +102,7 @@ export async function POST(request: Request) {
       locale,
       imageModel: parseImageModelChoice(body.imageModel),
       imageStore,
-      costLedger: createDefaultCostLedger()
+      costLedger: workspace.costLedger
     });
 
     return NextResponse.json(result);

@@ -19,6 +19,7 @@ import {
 import type { Asset, ProductWithProfile } from "@/src/domain/types";
 import { mapWithConcurrency } from "@/src/lib/concurrency";
 import type { CompetitionOutputArtifact } from "@/src/services/competition-runner";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import { ImageModelSelector } from "./ImageModelSelector";
 import styles from "./PhoneStandardizeRunner.module.css";
 
@@ -39,6 +40,7 @@ const initialRunState: RunState = {
 };
 
 export function PhoneStandardizeRunner() {
+  const { t } = useI18n();
   const task = getCompetitionTaskSpec(TASK_ID);
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
@@ -96,7 +98,7 @@ export function PhoneStandardizeRunner() {
       const uploaded = payload.assets?.[0] as Asset | undefined;
 
       if (!response.ok || payload.error || !uploaded) {
-        throw new Error(payload.error ?? "上传失败");
+        throw new Error(payload.error ?? t("上传失败"));
       }
 
       await Promise.all(
@@ -119,9 +121,9 @@ export function PhoneStandardizeRunner() {
         )
       );
       setRun(initialRunState);
-      setMessage(`手机图已上传：${uploaded.filename}`);
+      setMessage(t("手机图已上传：{name}", { name: uploaded.filename }));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "上传失败");
+      setMessage(error instanceof Error ? error.message : t("上传失败"));
     } finally {
       setUploading(false);
     }
@@ -139,7 +141,7 @@ export function PhoneStandardizeRunner() {
         method: "DELETE"
       });
       if (!response.ok) {
-        throw new Error("删除素材失败");
+        throw new Error(t("删除素材失败"));
       }
       setProducts((current) =>
         current.map((product) =>
@@ -152,9 +154,9 @@ export function PhoneStandardizeRunner() {
         )
       );
       setRun(initialRunState);
-      setMessage("手机图已移除");
+      setMessage(t("手机图已移除"));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除素材失败");
+      setMessage(error instanceof Error ? error.message : t("删除素材失败"));
     } finally {
       setUploading(false);
     }
@@ -196,7 +198,9 @@ export function PhoneStandardizeRunner() {
           ])
         }));
       } catch (error) {
-        errors.push(`${spec.label}：${error instanceof Error ? error.message : "生成失败"}`);
+        errors.push(
+          `${spec.label}: ${error instanceof Error ? error.message : t("生成失败")}`
+        );
         setRun((current) => ({ ...current, completed: current.completed + 1 }));
       }
     });
@@ -211,7 +215,8 @@ export function PhoneStandardizeRunner() {
   if (productsLoaded && products.length === 0) {
     return (
       <section className={styles.emptyState}>
-        还没有产品。请先到 <a href="/assets">素材库</a> 创建产品，再回到本页上传手机拍摄图。
+        {t("还没有产品。请先到")} <a href="/assets">{t("素材库")}</a>{" "}
+        {t("创建产品，再回到本页上传手机拍摄图。")}
       </section>
     );
   }
@@ -220,8 +225,8 @@ export function PhoneStandardizeRunner() {
     <div className={styles.runner}>
       <section className={styles.controlBand}>
         <div className={styles.taskCopy}>
-          <strong>{task.requirement}</strong>
-          <span>{task.summary}</span>
+          <strong>{t(task.requirement)}</strong>
+          <span>{t(task.summary)}</span>
         </div>
         <div className={styles.controls}>
           <ImageModelSelector
@@ -245,8 +250,10 @@ export function PhoneStandardizeRunner() {
               <Play aria-hidden size={17} />
             )}
             {run.state === "running"
-              ? `生成中 ${run.completed}/3`
-              : `${run.state === "done" ? "重新生成" : "生成"} 3 张标准图`}
+              ? t("生成中 {done}/3", { done: run.completed })
+              : run.state === "done"
+                ? t("重新生成 3 张标准图")
+                : t("生成 3 张标准图")}
           </button>
         </div>
       </section>
@@ -254,36 +261,35 @@ export function PhoneStandardizeRunner() {
       <section className={styles.sourceSection} aria-labelledby="phone-source-heading">
         <div className={styles.sectionHeader}>
           <div>
-            <h2 id="phone-source-heading">手机拍摄图 / 非标准产品图</h2>
-            <p>这张图片将作为三个视角唯一且准确的产品参考。</p>
+            <h2 id="phone-source-heading">{t("手机拍摄图 / 非标准产品图")}</h2>
           </div>
-          <strong>{sourceAsset ? "已准备 · 将生成 3 张" : "等待上传"}</strong>
+          <strong>
+            {sourceAsset ? t("已准备 · 将生成 3 张") : t("等待上传")}
+          </strong>
         </div>
 
         <div className={styles.sourceLayout}>
           <div className={styles.previewStage}>
             {sourceAsset ? (
               // eslint-disable-next-line @next/next/no-img-element
-              <img alt="手机拍摄图" src={sourceAsset.url} />
+              <img alt={t("手机拍摄图")} src={sourceAsset.url} />
             ) : (
               <div className={styles.placeholder}>
                 <ImagePlus aria-hidden size={30} />
-                <strong>上传一张产品照片</strong>
-                <span>支持 PNG、JPG、WebP</span>
+                <strong>{t("上传一张产品照片")}</strong>
+                <span>{t("支持 PNG、JPG、WebP")}</span>
               </div>
             )}
           </div>
 
           <div className={styles.sourceInfo}>
             <div>
-              <span>输入要求</span>
-              <strong>产品主体清晰可辨</strong>
-              <p>允许复杂场景、倒影、有色光、贴纸和宣传物料，系统会在标准化时清除。</p>
+              <span>{t("输入要求")}</span>
+              <strong>{t("产品主体清晰可辨")}</strong>
             </div>
             <div>
-              <span>固定输出</span>
-              <strong>左侧 45° / 正视 / 右侧 45°</strong>
-              <p>三个结果分别生成，并保持同一个三维产品模型、比例和材质。</p>
+              <span>{t("固定输出")}</span>
+              <strong>{t("左侧 45° / 正视 / 右侧 45°")}</strong>
             </div>
             <div className={styles.sourceActions}>
               <label className={styles.uploadButton}>
@@ -292,10 +298,10 @@ export function PhoneStandardizeRunner() {
                 ) : (
                   <ImagePlus aria-hidden size={16} />
                 )}
-                {sourceAsset ? "替换图片" : "上传图片"}
+                {sourceAsset ? t("替换图片") : t("上传图片")}
                 <input
                   accept="image/png,image/jpeg,image/webp"
-                  aria-label="上传手机拍摄图"
+                  aria-label={t("上传手机拍摄图")}
                   disabled={uploading || run.state === "running"}
                   onChange={(event) => {
                     const file = event.target.files?.[0];
@@ -309,11 +315,11 @@ export function PhoneStandardizeRunner() {
               </label>
               {sourceAsset?.source === "uploaded" ? (
                 <button
-                  aria-label="删除手机拍摄图"
+                  aria-label={t("删除手机拍摄图")}
                   className={styles.deleteButton}
                   disabled={uploading || run.state === "running"}
                   onClick={removeSource}
-                  title="删除手机拍摄图"
+                  title={t("删除手机拍摄图")}
                   type="button"
                 >
                   <Trash2 aria-hidden size={16} />
@@ -330,8 +336,7 @@ export function PhoneStandardizeRunner() {
       {run.state === "running" ? (
         <section aria-label="生成进度" className={styles.progressPanel}>
           <div>
-            <strong>摄影棚标准化生成中 {run.completed}/3</strong>
-            <span>正在清除场景干扰并重建三个独立视角</span>
+            <strong>{t("摄影棚标准化生成中 {done}/3", { done: run.completed })}</strong>
           </div>
           <div className={styles.progressTrack}>
             <div style={{ width: `${progressPercent}%` }} />
@@ -339,13 +344,18 @@ export function PhoneStandardizeRunner() {
         </section>
       ) : null}
 
-      {run.error ? <section className={styles.error}>部分输出失败：{run.error}</section> : null}
+      {run.error ? (
+        <section className={styles.error}>
+          {t("部分输出失败：")}
+          {run.error}
+        </section>
+      ) : null}
 
       {run.outputs.length ? (
         <section className={styles.results} aria-label="手机图标准化结果">
           <div className={styles.resultHeader}>
-            <h2>摄影棚标准化三视角</h2>
-            <span>{run.outputs.length}/3 已完成</span>
+            <h2>{t("摄影棚标准化三视角")}</h2>
+            <span>{t("{done}/3 已完成", { done: run.outputs.length })}</span>
           </div>
           <div className={styles.resultGrid}>
             {run.outputs.map((output) => (
@@ -372,6 +382,7 @@ function sortOutputs(outputs: CompetitionOutputArtifact[]): CompetitionOutputArt
 }
 
 function OutputCard({ output }: { output: CompetitionOutputArtifact }) {
+  const { t } = useI18n();
   const angle = PHONE_STANDARDIZATION_ANGLES.find((item) => item.id === output.spec.angle);
 
   return (
@@ -388,7 +399,7 @@ function OutputCard({ output }: { output: CompetitionOutputArtifact }) {
         <span>{output.provenance.model}</span>
         <a href={output.url} target="_blank">
           <ExternalLink aria-hidden size={14} />
-          打开原图
+          {t("打开原图")}
         </a>
       </div>
     </article>

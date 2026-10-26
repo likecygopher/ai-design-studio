@@ -1,9 +1,11 @@
 import { writeFile } from "node:fs/promises";
 import { extname, join, resolve, sep } from "node:path";
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { createUserWorkspace, type UserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import { parseImageModelChoice } from "@/src/domain/generation-models";
-import { createDemoAssetStore, localizeGeneratedImage } from "@/src/services/demo-api";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
+import { localizeGeneratedImage } from "@/src/services/demo-api";
 import {
   chooseImageProviderSize,
   readImageDimensions,
@@ -80,8 +82,15 @@ export async function POST(request: Request) {
     }
   }
 
+  let workspace: UserWorkspace;
+  try {
+    const userId = await requireUserId();
+    workspace = createUserWorkspace(userId);
+  } catch (error) {
+    return toErrorResponse(error);
+  }
   const taskId = `localize-${crypto.randomUUID()}`;
-  const imageStore = createDemoAssetStore();
+  const imageStore = workspace.imageStore;
   const sourceName = safeSourceName(imageEntry.name);
 
   try {
@@ -98,7 +107,7 @@ export async function POST(request: Request) {
       sourceHeight: dimensions.height,
       imageModel: parseImageModelChoice(form.get("imageModel")),
       imageStore,
-      costLedger: createDefaultCostLedger()
+      costLedger: workspace.costLedger
     });
     const exactUrl = await conformOutputDimensions(
       result.url,

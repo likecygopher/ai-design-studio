@@ -124,7 +124,12 @@ describe("demo API helpers", () => {
     expect(result.url).toBe("/generated/task-pdp/pdp.svg");
     expect(result.sectionCount).toBe(2);
     expect(savedSvg).toContain("Energy Saving");
-    expect(savedSvg).toContain("10-Year Warranty");
+    // PDP copy is driven by the authored selling-point title, not the padded
+    // shortLabel (which is reserved for other surfaces). `10-Year Warranty` is
+    // the shortLabel of the `Local Warranty` point, so the exported SVG must
+    // carry the title and never the shortLabel.
+    expect(savedSvg).toContain("Local Warranty");
+    expect(savedSvg).not.toContain("10-Year Warranty");
     expect(savedSvg).toContain("data:image/png;base64");
     expect(savedSvg).toContain("Specification");
     expect(appendRecord).toHaveBeenCalled();

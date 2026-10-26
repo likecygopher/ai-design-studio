@@ -1,0 +1,48 @@
+# Build context exclusions for the platform image (web runner + worker stages).
+# Keep manifests, prisma/, src/, scripts/ and public/ in context — they are
+# required by `prisma generate` / `next build` / `tsx scripts/worker.ts`.
+
+# Dependencies & build artifacts (recreated inside the image)
+node_modules
+.pnpm-store
+.npm-cache
+.next
+out
+dist
+coverage
+
+# VCS / CI metadata
+.git
+.gitignore
+.github
+
+# Secrets & local env (never bake into a layer)
+.env
+.env.*
+!.env.example
+
+# Runtime data (persisted through the studio-storage volume instead)
+data
+outputs
+tmp
+tmp_risk_review
+tmp_spreadsheet_review
+public/uploads
+public/generated
+
+# Local tooling / docs that are not needed to build or run the image
+.superpowers
+.playwright-cli
+.claude
+img
+docs
+*.log
+*.tsbuildinfo
+.DS_Store
+._*
+**/__MACOSX
+
+# Container definitions themselves
+Dockerfile
+.dockerignore
+docker-compose.yml

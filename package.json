@@ -1,40 +1,65 @@
 {
-    "name": "midea-ai-content-demo",
-    "version": "0.1.0",
-    "private": true,
-    "engines": {
-        "node": ">=24 <25"
-    },
-    "packageManager": "pnpm@11.15.1+sha512.81350b07e53c9538a02f1f2303b4290fa2d7be04e56e2a970c4cc4b417dc761de196edabd49d55c7dc9580db81007c44143e4e3d7e462b3000d23c255122d065",
-    "scripts": {
-        "dev": "next dev",
-        "build": "next build",
-        "start": "next start",
-        "test": "vitest run",
-        "test:watch": "vitest",
-        "typecheck": "tsc --noEmit"
-    },
-    "dependencies": {
-        "clsx": "^2.1.1",
-        "lucide-react": "^0.468.0",
-        "next": "^15.1.0",
-        "openai": "^4.77.0",
-        "react": "^19.0.0",
-        "react-dom": "^19.0.0",
-        "sharp": "0.34.5",
-        "undici": "6.21.3",
-        "zod": "^3.24.1"
-    },
-    "devDependencies": {
-        "@testing-library/jest-dom": "^6.6.3",
-        "@testing-library/react": "^16.1.0",
-        "@testing-library/user-event": "^14.5.2",
-        "@types/node": "^22.10.2",
-        "@types/react": "^19.0.2",
-        "@types/react-dom": "^19.0.2",
-        "@vitejs/plugin-react": "^4.3.4",
-        "jsdom": "^25.0.1",
-        "typescript": "^5.7.2",
-        "vitest": "^2.1.8"
-    }
+  "name": "midea-ai-content-demo",
+  "version": "0.1.0",
+  "private": true,
+  "engines": {
+    "node": ">=24 <25"
+  },
+  "packageManager": "pnpm@11.15.1+sha512.81350b07e53c9538a02f1f2303b4290fa2d7be04e56e2a970c4cc4b417dc761de196edabd49d55c7dc9580db81007c44143e4e3d7e462b3000d23c255122d065",
+  "scripts": {
+    "dev": "next dev",
+    "dev:all": "bash scripts/dev-all.sh",
+    "deploy:docker": "bash scripts/deploy-docker.sh",
+    "build": "prisma generate && next build",
+    "start": "next start",
+    "worker": "tsx scripts/worker.ts",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "prisma migrate dev",
+    "db:deploy": "prisma migrate deploy",
+    "db:push": "prisma db push",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:setup": "pnpm db:up && pnpm db:push && pnpm db:seed",
+    "db:setup:prod": "pnpm db:up && pnpm db:deploy && pnpm db:seed",
+    "cleanup": "tsx scripts/cleanup.ts",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "typecheck": "tsc --noEmit",
+    "e2e": "playwright test",
+    "audit": "pnpm audit --prod --audit-level=high --registry=https://registry.npmjs.org"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "^3.1156.0",
+    "@node-saml/node-saml": "^5.1.0",
+    "@prisma/client": "6.19.0",
+    "bcryptjs": "^3.0.3",
+    "clsx": "^2.1.1",
+    "ioredis": "^6.0.0",
+    "lucide-react": "^0.468.0",
+    "next": "^15.5.28",
+    "next-auth": "5.0.0-beta.32",
+    "openai": "^4.77.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0",
+    "sharp": "^0.35.5",
+    "undici": "^6.29.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@playwright/test": "1.64.1",
+    "@testing-library/jest-dom": "^6.6.3",
+    "@testing-library/react": "^16.1.0",
+    "@testing-library/user-event": "^14.5.2",
+    "@types/node": "^22.10.2",
+    "@types/react": "^19.0.2",
+    "@types/react-dom": "^19.0.2",
+    "@vitejs/plugin-react": "^4.3.4",
+    "jsdom": "^25.0.1",
+    "prisma": "6.19.0",
+    "tsx": "^4.23.15",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
 }

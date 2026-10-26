@@ -8,6 +8,7 @@ import {
   PRODUCT_VIDEO_OUTPUT
 } from "@/src/domain/product-video";
 import type { Asset, ProductWithProfile } from "@/src/domain/types";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import styles from "./ProductVideoStudio.module.css";
 
 type ProductVideoStudioProps = {
@@ -31,6 +32,7 @@ export function ProductVideoStudio({
   products,
   pollIntervalMs = 5000
 }: ProductVideoStudioProps) {
+  const { t } = useI18n();
   const [productId, setProductId] = useState(products[0]?.id ?? "");
   const selectedProduct = products.find((product) => product.id === productId) ?? products[0];
   const productImages = useMemo(
@@ -69,7 +71,9 @@ export function ProductVideoStudio({
         const response = await fetch(`/api/product-video?taskId=${encodeURIComponent(taskId)}`);
         const payload: VideoTaskPayload = await response.json();
         if (!response.ok || payload.error) {
-          throw new Error(payload.error ?? `任务查询失败 (${response.status})`);
+          throw new Error(
+          payload.error ?? t("任务查询失败 ({status})", { status: response.status })
+        );
         }
         if (cancelled) {
           return;
@@ -84,7 +88,7 @@ export function ProductVideoStudio({
         setWarning((current) => payload.warning ?? current);
 
         if (nextStatus === "failed" || nextStatus === "cancelled") {
-          setError(payload.error ?? "视频生成任务未完成。");
+          setError(payload.error ?? t("视频生成任务未完成。"));
           return;
         }
         if (nextStatus === "queued" || nextStatus === "running") {
@@ -93,7 +97,7 @@ export function ProductVideoStudio({
       } catch (cause) {
         if (!cancelled) {
           setStatus("failed");
-          setError(cause instanceof Error ? cause.message : "视频任务查询失败。");
+          setError(cause instanceof Error ? cause.message : t("视频任务查询失败。"));
         }
       }
     }
@@ -109,11 +113,11 @@ export function ProductVideoStudio({
 
   async function createVideo() {
     if (!selectedProduct || !productAssetId) {
-      setError("请先选择包含产品图片的产品档案。");
+      setError(t("请先选择包含产品图片的产品档案。"));
       return;
     }
     if (!prompt.trim()) {
-      setError("视频提示词不能为空。");
+      setError(t("视频提示词不能为空。"));
       return;
     }
 
@@ -130,7 +134,9 @@ export function ProductVideoStudio({
       });
       const payload: VideoTaskPayload = await response.json();
       if (!response.ok || payload.error || !payload.taskId) {
-        throw new Error(payload.error ?? `任务创建失败 (${response.status})`);
+        throw new Error(
+          payload.error ?? t("任务创建失败 ({status})", { status: response.status })
+        );
       }
       setTaskId(payload.taskId);
       setStatus(payload.status ?? "queued");
@@ -139,7 +145,7 @@ export function ProductVideoStudio({
       setWarning(payload.warning ?? "");
     } catch (cause) {
       setStatus("failed");
-      setError(cause instanceof Error ? cause.message : "产品视频任务创建失败。");
+      setError(cause instanceof Error ? cause.message : t("产品视频任务创建失败。"));
     }
   }
 
@@ -150,9 +156,9 @@ export function ProductVideoStudio({
     <section className={styles.studio}>
       <div className={styles.toolbar}>
         <label className={styles.field}>
-          产品
+          {t("产品")}
           <select
-            aria-label="产品"
+            aria-label={t("产品")}
             disabled={busy}
             onChange={(event) => setProductId(event.target.value)}
             value={selectedProduct?.id ?? ""}
@@ -165,21 +171,21 @@ export function ProductVideoStudio({
           </select>
         </label>
         <label className={styles.field}>
-          产品参考图
+          {t("产品参考图")}
           <select
-            aria-label="产品参考图"
+            aria-label={t("产品参考图")}
             disabled={busy || !productImages.length}
             onChange={(event) => setProductAssetId(event.target.value)}
             value={productAssetId}
           >
-            {productImages.length ? null : <option value="">暂无产品图片</option>}
+            {productImages.length ? null : <option value="">{t("暂无产品图片")}</option>}
             {productImages.map((asset) => (
               <option key={asset.id} value={asset.id}>{asset.filename}</option>
             ))}
           </select>
         </label>
         <div className={styles.modelField}>
-          <span>视频模型</span>
+          <span>{t("视频模型")}</span>
           <strong>{PRODUCT_VIDEO_MODEL_LABEL}</strong>
         </div>
       </div>
@@ -188,7 +194,7 @@ export function ProductVideoStudio({
         <div className={styles.referencePane}>
           <div className={styles.paneHeader}>
             <Film aria-hidden="true" size={18} />
-            <strong>唯一产品参考</strong>
+            <strong>{t("唯一产品参考")}</strong>
           </div>
           <div className={styles.referenceStage}>
             {selectedAsset ? (
@@ -199,20 +205,20 @@ export function ProductVideoStudio({
                 src={selectedAsset.url}
               />
             ) : (
-              <a className={styles.emptyLink} href="/assets">到素材库上传产品照片</a>
+              <a className={styles.emptyLink} href="/assets">{t("到素材库上传产品照片")}</a>
             )}
           </div>
           <dl className={styles.specList}>
-            <div><dt>时长</dt><dd>{PRODUCT_VIDEO_OUTPUT.durationSeconds} 秒</dd></div>
-            <div><dt>画幅</dt><dd>{PRODUCT_VIDEO_OUTPUT.aspectRatio}</dd></div>
-            <div><dt>分辨率</dt><dd>{PRODUCT_VIDEO_OUTPUT.resolution}</dd></div>
+            <div><dt>{t("时长")}</dt><dd>{t("{count} 秒", { count: PRODUCT_VIDEO_OUTPUT.durationSeconds })}</dd></div>
+            <div><dt>{t("画幅")}</dt><dd>{PRODUCT_VIDEO_OUTPUT.aspectRatio}</dd></div>
+            <div><dt>{t("分辨率")}</dt><dd>{PRODUCT_VIDEO_OUTPUT.resolution}</dd></div>
           </dl>
         </div>
 
         <label className={styles.promptField}>
-          <span>视频提示词</span>
+          <span>{t("视频提示词")}</span>
           <textarea
-            aria-label="视频提示词"
+            aria-label={t("视频提示词")}
             disabled={busy}
             onChange={(event) => setPrompt(event.target.value)}
             spellCheck={false}
@@ -230,9 +236,13 @@ export function ProductVideoStudio({
           type="button"
         >
           {busy ? <LoaderCircle aria-hidden="true" className={styles.spinner} size={18} /> : <Play aria-hidden="true" size={18} />}
-          {busy ? statusLabel(status) : videoUrl ? "重新生成产品视频" : "生成产品视频"}
+          {busy
+            ? statusLabel(status, t)
+            : videoUrl
+              ? t("重新生成产品视频")
+              : t("生成产品视频")}
         </button>
-        {taskId ? <span className={styles.taskId}>任务 ID: {taskId}</span> : null}
+        {taskId ? <span className={styles.taskId}>{t("任务 ID: {id}", { id: taskId })}</span> : null}
         {error ? <span className={styles.error}>{error}</span> : null}
         {warning ? <span className={styles.warning}>{warning}</span> : null}
       </div>
@@ -244,7 +254,7 @@ export function ProductVideoStudio({
             <span>{model}</span>
           </div>
           <video controls playsInline preload="metadata" src={videoUrl} />
-          <a href={videoUrl} target="_blank" rel="noreferrer">打开视频文件</a>
+          <a href={videoUrl} target="_blank" rel="noreferrer">{t("打开视频文件")}</a>
         </div>
       ) : null}
     </section>
@@ -255,12 +265,12 @@ function getProductImages(assets: Asset[]): Asset[] {
   return assets.filter((asset) => asset.type === "product-photo" || asset.type === "phone-shot");
 }
 
-function statusLabel(status: UiStatus): string {
+function statusLabel(status: UiStatus, translate: (key: string) => string): string {
   if (status === "submitting") {
-    return "正在创建任务";
+    return translate("正在创建任务");
   }
   if (status === "queued") {
-    return "任务排队中";
+    return translate("任务排队中");
   }
-  return "视频生成中";
+  return translate("视频生成中");
 }

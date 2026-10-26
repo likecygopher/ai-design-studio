@@ -5,6 +5,11 @@ node_modules/
 out/
 dist/
 coverage/
+e2e/.auth/
+test-results/
+playwright-report/
+blob-report/
+.playwright/
 .env
 .env.*
 !.env.example

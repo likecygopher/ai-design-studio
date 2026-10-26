@@ -1,0 +1,276 @@
+/* Task center: compact glass list consistent with the studio shell. */
+.page {
+  display: grid;
+  gap: 14px;
+}
+
+.header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.header h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.subtitle {
+  margin: 0;
+  max-width: 640px;
+  color: var(--muted);
+}
+
+.controls {
+  display: flex;
+  align-items: flex-end;
+  gap: 8px;
+}
+
+.filter {
+  display: grid;
+  gap: 4px;
+  min-width: 148px;
+  color: var(--muted);
+}
+
+.refreshButton,
+.loadMore,
+.errorActions button,
+.emptyState a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 8px;
+  padding: 8px 14px;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+}
+
+.refreshButton:disabled,
+.loadMore:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.notice {
+  margin: 0;
+  padding: 8px 12px;
+  border: 1px solid rgba(79, 153, 255, 0.34);
+  border-radius: 8px;
+  background: rgba(79, 153, 255, 0.14);
+  color: var(--text);
+}
+
+.loadingState {
+  margin: 0;
+  padding: 18px;
+  border: 1px dashed rgba(56, 81, 111, 0.32);
+  border-radius: 8px;
+  color: var(--muted);
+}
+
+.errorState {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 14px 16px;
+  border: 1px solid rgba(151, 63, 63, 0.34);
+  border-radius: 8px;
+  background: rgba(190, 96, 96, 0.12);
+}
+
+.errorState p {
+  margin: 0;
+  color: #7b2f2f;
+}
+
+.errorActions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.emptyState {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  padding: 22px;
+  border: 1px dashed rgba(56, 81, 111, 0.34);
+  border-radius: 8px;
+  background: var(--studio-glass-subtle, rgba(255, 255, 255, 0.16));
+  color: var(--muted);
+}
+
+.emptyState p {
+  margin: 0;
+}
+
+.list {
+  display: grid;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 12px 14px;
+  border: 1px solid rgba(255, 255, 255, 0.58);
+  border-radius: 8px;
+  background: var(--studio-glass-card, rgba(255, 255, 255, 0.3));
+  backdrop-filter: blur(14px) saturate(120%);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+}
+
+.itemMain {
+  display: grid;
+  flex: 1;
+  gap: 6px;
+  min-width: 0;
+}
+
+.itemTitle {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.type {
+  font-weight: 700;
+}
+
+.status {
+  padding: 1px 8px;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+.status[data-status="queued"] {
+  border-color: rgba(28, 74, 122, 0.28);
+  background: rgba(79, 153, 255, 0.16);
+  color: #1c4a7a;
+}
+
+.status[data-status="running"] {
+  border-color: rgba(107, 74, 0, 0.26);
+  background: rgba(255, 196, 84, 0.24);
+  color: #6b4a00;
+}
+
+.status[data-status="succeeded"] {
+  border-color: rgba(29, 91, 51, 0.24);
+  background: rgba(94, 187, 125, 0.18);
+  color: #1d5b33;
+}
+
+.status[data-status="failed"] {
+  border-color: rgba(123, 47, 47, 0.26);
+  background: rgba(190, 96, 96, 0.18);
+  color: #7b2f2f;
+}
+
+.status[data-status="cancelled"] {
+  border-color: rgba(58, 63, 69, 0.2);
+  background: rgba(120, 120, 120, 0.16);
+  color: #3a3f45;
+}
+
+.progressRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: 460px;
+}
+
+.progressTrack {
+  position: relative;
+  flex: 1;
+  height: 6px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: rgba(10, 24, 34, 0.14);
+}
+
+.progressFill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #7fb3ff, #005eb8);
+  transition: width 300ms ease;
+}
+
+.progressText {
+  min-width: 36px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+}
+
+.meta {
+  margin: 0;
+  color: var(--muted);
+}
+
+.jobError {
+  margin: 0;
+  color: #7b2f2f;
+}
+
+.actions {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+}
+
+.cancelButton {
+  border-radius: 8px;
+  padding: 7px 12px;
+  color: #7b2f2f;
+  cursor: pointer;
+}
+
+.cancelButton:disabled {
+  cursor: wait;
+  opacity: 0.64;
+}
+
+.loadMore {
+  justify-self: center;
+}
+
+@media (max-width: 680px) {
+  .item {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .actions {
+    justify-content: flex-end;
+  }
+
+  .controls {
+    width: 100%;
+  }
+
+  .filter {
+    flex: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .progressFill {
+    transition: none;
+  }
+}

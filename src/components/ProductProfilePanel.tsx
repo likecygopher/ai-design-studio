@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import type { ProductWithProfile, SellingPoint } from "@/src/domain/types";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type EditablePoint = SellingPoint & { enabled?: boolean };
 
 export function ProductProfilePanel() {
+  const { t } = useI18n();
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [productId, setProductId] = useState("");
   const [points, setPoints] = useState<EditablePoint[]>([]);
@@ -66,7 +68,7 @@ export function ProductProfilePanel() {
   }
 
   async function recognize() {
-    setStatus("识别中…");
+    setStatus(t("识别中…"));
     setError("");
     try {
       const response = await fetch("/api/products/recognize", {
@@ -76,21 +78,26 @@ export function ProductProfilePanel() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "识别失败");
+        throw new Error(payload.error ?? t("识别失败"));
       }
       setPoints(payload.product.profile.detectedFeatures);
-      const modelNote = payload.model && payload.model !== "rule-parser" ? `,模型 ${payload.model}` : "";
+      const modelNote =
+        payload.model && payload.model !== "rule-parser" ? `, ${payload.model}` : "";
       setStatus(
-        `已从 ${payload.recognizedFrom ?? "产品信息文档"} 识别 ${payload.product.profile.detectedFeatures.length} 条卖点${modelNote}`
+        t("已从 {source} 识别 {count} 条卖点{model}", {
+          source: payload.recognizedFrom ?? t("产品信息文档"),
+          count: payload.product.profile.detectedFeatures.length,
+          model: modelNote
+        })
       );
     } catch (cause) {
       setStatus("");
-      setError(cause instanceof Error ? cause.message : "识别失败");
+      setError(cause instanceof Error ? cause.message : t("识别失败"));
     }
   }
 
   async function save() {
-    setStatus("保存中…");
+    setStatus(t("保存中…"));
     setError("");
     try {
       const response = await fetch("/api/products/selling-points", {
@@ -105,13 +112,13 @@ export function ProductProfilePanel() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "保存失败");
+        throw new Error(payload.error ?? t("保存失败"));
       }
       setPoints(payload.product.profile.detectedFeatures);
-      setStatus("卖点已保存,后续 PDP 与生成提示词将使用最新档案。");
+      setStatus(t("卖点已保存,后续 PDP 与生成提示词将使用最新档案。"));
     } catch (cause) {
       setStatus("");
-      setError(cause instanceof Error ? cause.message : "保存失败");
+      setError(cause instanceof Error ? cause.message : t("保存失败"));
     }
   }
 
@@ -121,7 +128,7 @@ export function ProductProfilePanel() {
     <section style={{ background: "var(--studio-glass-card, #ffffff)", border: "1px solid #d9e0e7", borderRadius: 8, padding: 18 }}>
       <div style={{ alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "minmax(240px, 320px) 1fr auto auto", marginBottom: 14 }}>
         <label style={{ display: "grid", gap: 6 }}>
-          产品
+          {t("产品")}
           <select value={productId} onChange={(event) => switchProduct(event.target.value)}>
             {products.map((item) => (
               <option key={item.id} value={item.id}>
@@ -197,9 +204,7 @@ export function ProductProfilePanel() {
       </div>
 
       <p style={{ color: "var(--muted)", fontSize: 13, marginTop: 14 }}>
-        识别规则:读取素材库中该产品最新上传的「产品信息」文档。<strong>PDF(格式不限)由大模型直接解析提取卖点</strong>;
-        txt/json 支持 JSON 数组或每行「标题|短标签|说明|技术佐证」格式。识别结果可手工修正,
-        保存后驱动 PDP 段落与生成提示词。
+        支持 PDF / TXT / JSON，识别结果可手工修正。
       </p>
     </section>
   );

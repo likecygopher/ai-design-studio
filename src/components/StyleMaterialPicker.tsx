@@ -5,6 +5,7 @@ import { ImagePlus, Loader2 } from "lucide-react";
 import type { Asset, ProductWithProfile } from "@/src/domain/types";
 import { StudioDialog } from "./StudioDialog";
 import styles from "./StyleTransferStudio.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 const PRODUCT_TYPES = new Set<Asset["type"]>(["product-photo", "phone-shot", "white-background-closed", "white-background-open", "sku-product"]);
 export function styleProductImages(product?: ProductWithProfile) {
@@ -20,6 +21,7 @@ export function StyleMaterialPicker({ mode, products, setProducts, initialProduc
   onSelect: (productId: string, assetId: string) => void;
   onClose: () => void;
 }) {
+  const { t } = useI18n();
   const [productId, setProductId] = useState(initialProductId || products[0]?.id || "new");
   const [name, setName] = useState("");
   const [category, setCategory] = useState("");
@@ -31,15 +33,15 @@ export function StyleMaterialPicker({ mode, products, setProducts, initialProduc
 
   async function upload() {
     if (busy) return;
-    if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type) || !file.size || file.size > 20 * 1024 * 1024) { setError("请选择不超过 20 MB 的 PNG、JPEG 或 WebP 产品图片。"); return; }
-    if (!product && (!name.trim() || !category.trim())) { setError("请填写产品名称和品类。"); return; }
+    if (!file || !["image/png", "image/jpeg", "image/webp"].includes(file.type) || !file.size || file.size > 20 * 1024 * 1024) { setError(t("请选择不超过 20 MB 的 PNG、JPEG 或 WebP 产品图片。")); return; }
+    if (!product && (!name.trim() || !category.trim())) { setError(t("请填写产品名称和品类。")); return; }
     setBusy(true); setError("");
     try {
       let target = product;
       if (!target) {
         const response = await fetch("/api/products", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ name: name.trim(), category: category.trim() }) });
         const payload = await response.json();
-        if (!response.ok || !payload.product?.id) throw new Error(payload.error ?? "创建产品失败");
+        if (!response.ok || !payload.product?.id) throw new Error(payload.error ?? t("创建产品失败"));
         target = payload.product as ProductWithProfile;
         const created = target;
         setProducts(current => [...current.filter(item => item.id !== created.id), created]);
@@ -50,36 +52,35 @@ export function StyleMaterialPicker({ mode, products, setProducts, initialProduc
       const response = await fetch("/api/upload", { method: "POST", body: form });
       const payload = await response.json();
       const asset = payload.assets?.[0] as Asset | undefined;
-      if (!response.ok || payload.error || !asset?.id) throw new Error(payload.error ?? "上传失败，请重试");
+      if (!response.ok || payload.error || !asset?.id) throw new Error(payload.error ?? t(t("上传失败，请重试")));
       const targetId = target.id;
       setProducts(current => current.map(item => item.id === targetId ? { ...item, assets: [...item.assets, asset] } : item));
       onSelect(target.id, asset.id);
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "上传失败，请重试"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t(t("上传失败，请重试"))); }
     finally { setBusy(false); }
   }
 
-  return <StudioDialog title={mode === "library" ? "选择产品素材" : "本地上传产品图"} onClose={onClose} busy={busy}>
+  return <StudioDialog title={mode === "library" ? t("选择产品素材") : t("本地上传产品图")} onClose={onClose} busy={busy}>
     <div className={styles.pickerForm}>
-      <label className={styles.field}>产品<select disabled={busy} value={productId} onChange={event => { setProductId(event.target.value); setError(""); }}>
+      <label className={styles.field}>{t("产品")}<select disabled={busy} value={productId} onChange={event => { setProductId(event.target.value); setError(""); }}>
         {products.map(item => <option value={item.id} key={item.id}>{productLabel(item)}</option>)}
-        {mode === "upload" ? <option value="new">＋ 创建新产品</option> : !products.length ? <option value="new">暂无产品</option> : null}
+        {mode === "upload" ? <option value="new">{t("＋ 创建新产品")}</option> : !products.length ? <option value="new">{t("暂无产品")}</option> : null}
       </select></label>
       {mode === "library" ? <>
-        <p className={styles.hint}>选择一张清晰的产品参考图。只使用当前产品的素材，不混用其他产品。</p>
+        <p className={styles.hint}>{t("仅使用当前产品的素材。")}</p>
         <div className={styles.assetGrid}>
           {images.map(asset => <button type="button" key={asset.id} aria-label={asset.filename} onClick={() => onSelect(productId, asset.id)} className={styles.assetCard}>
             {/* eslint-disable-next-line @next/next/no-img-element */}<img src={asset.url} alt="" /><span>{asset.filename}</span>
           </button>)}
         </div>
-        {!images.length ? <p className={styles.emptyState}>此产品暂无可用参考图。关闭窗口后，可通过“本地上传”添加。</p> : null}
+        {!images.length ? <p className={styles.emptyState}>{t("此产品暂无可用参考图。关闭窗口后，可通过“本地上传”添加。")}</p> : null}
       </> : <>
         {!product ? <div className={styles.newProductFields}>
-          <label className={styles.field}>产品名称<input maxLength={100} disabled={busy} value={name} onChange={event => setName(event.target.value)} placeholder="例如：静音循环风扇" /></label>
-          <label className={styles.field}>产品品类<input maxLength={60} disabled={busy} value={category} onChange={event => setCategory(event.target.value)} placeholder="例如：风扇" /></label>
+          <label className={styles.field}>{t("产品名称")}<input maxLength={100} disabled={busy} value={name} onChange={event => setName(event.target.value)} placeholder={t("例如：静音循环风扇")} /></label>
+          <label className={styles.field}>{t("产品品类")}<input maxLength={60} disabled={busy} value={category} onChange={event => setCategory(event.target.value)} placeholder={t("例如：风扇")} /></label>
         </div> : null}
-        <label className={styles.uploadZone}><ImagePlus size={25} aria-hidden /><strong>{file?.name ?? "点击选择产品图片"}</strong><span>PNG / JPEG / WebP · 最大 20 MB</span><input type="file" aria-label="产品图片" disabled={busy} accept="image/png,image/jpeg,image/webp" onChange={event => { setFile(event.target.files?.[0]); setError(""); }} /></label>
-        <p className={styles.hint}>素材将归入所选产品的素材库，不覆盖已有图片。上传本身不会触发生图。</p>
-        <button className={styles.primary} disabled={busy || !file} onClick={upload} type="button">{busy ? <><Loader2 size={14} className={styles.spinner} aria-hidden />上传中…</> : "上传并使用"}</button>
+        <label className={styles.uploadZone}><ImagePlus size={25} aria-hidden /><strong>{file?.name ?? t("点击选择产品图片")}</strong><span>{t("PNG / JPEG / WebP · 最大 20 MB")}</span><input type="file" aria-label={t("产品图片")} disabled={busy} accept="image/png,image/jpeg,image/webp" onChange={event => { setFile(event.target.files?.[0]); setError(""); }} /></label>
+        <button className={styles.primary} disabled={busy || !file} onClick={upload} type="button">{busy ? <><Loader2 size={14} className={styles.spinner} aria-hidden />{t("上传中…")}</> : t("上传并使用")}</button>
       </>}
       {error ? <p role="alert" className={styles.error}>{error}</p> : null}
     </div>

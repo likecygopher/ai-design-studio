@@ -8,12 +8,29 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("@/src/services/demo-api", () => ({
-  createDemoAssetStore: () => ({ saveGeneratedImage: mocks.saveGeneratedImage }),
   localizeGeneratedImage: mocks.localizeGeneratedImage
 }));
 
-vi.mock("@/src/services/cost-ledger", () => ({
-  createDefaultCostLedger: () => ({ appendRecord: vi.fn() })
+vi.mock("@/src/platform/auth", () => ({
+  requireUserId: async () => "test-user-id"
+}));
+
+vi.mock("@/src/platform/workspace", () => ({
+  createUserWorkspace: () => ({
+    userId: "test-user-id",
+    imageStore: { saveGeneratedImage: mocks.saveGeneratedImage },
+    costLedger: { appendRecord: vi.fn() }
+  })
+}));
+
+vi.mock("@/src/platform/http", () => ({
+  toErrorResponse: (error: unknown) =>
+    new Response(
+      JSON.stringify({
+        error: error instanceof Error ? error.message : "服务器错误"
+      }),
+      { status: 500 }
+    )
 }));
 
 vi.mock("@/src/services/image-dimensions", () => ({

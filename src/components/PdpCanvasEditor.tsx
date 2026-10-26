@@ -25,6 +25,7 @@ import { PdpCanvas } from "./PdpCanvas";
 import { ImageCropDialog } from "./ImageCropDialog";
 import { SYSTEM_SETTINGS_CHANGED, type StudioMarketSettings } from "@/src/lib/system-settings-events";
 import styles from "./PdpEditor.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type ExportResponse = {
   taskId: string;
@@ -41,6 +42,7 @@ type EditorStatus = "idle" | "uploading" | "exporting" | "done" | "failed";
 
 
 export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }) {
+  const { t } = useI18n();
   const initialProduct = products[0];
   const initialPoints = toEditablePoints(initialProduct);
   const [productId, setProductId] = useState(initialProduct?.id ?? "");
@@ -309,7 +311,7 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
       const response = await fetch("/api/upload", { method: "POST", body: form });
       const payload = await response.json();
       if (!response.ok || payload.error || !payload.assets?.[0]) {
-        throw new Error(payload.error ?? "图片上传失败");
+        throw new Error(payload.error ?? t("图片上传失败"));
       }
 
       const uploaded = payload.assets[0] as Asset;
@@ -320,7 +322,7 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
       assignAssetToBlock(pending.blockId, uploaded.id);
       setStatus("idle");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "图片上传失败");
+      setError(cause instanceof Error ? cause.message : t("图片上传失败"));
       setStatus("failed");
     } finally {
       setPendingCrop(null);
@@ -413,20 +415,19 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
     <section className={styles.editor}>
       <header className={styles.editorHeader}>
         <div>
-          <p className={styles.eyebrow}>PDP CANVAS EDITOR</p>
           <h2>动态 PDP 画布</h2>
         </div>
         <span
           className={`${styles.status} ${status === "done" ? styles.statusActive : ""}`}
         >
-          {statusLabel(status)}
+          {statusLabel(status, t)}
         </span>
       </header>
 
       <div className={styles.toolbar}>
         <div className={styles.contextControls}>
           <select
-            aria-label="产品"
+            aria-label={t("产品")}
             className={styles.productSelect}
             onChange={(event) => switchProduct(event.target.value)}
             value={productId}
@@ -437,27 +438,27 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
               </option>
             ))}
           </select>
-          <span title="默认市场可在右上角「用户设置」中修改">{country} / {language}</span>
+          <span title={t("默认市场可在右上角「用户设置」中修改")}>{country} / {language}</span>
         </div>
 
         <div className={styles.toolbarActions}>
           <button
-            aria-label="缩小画布"
+            aria-label={t("缩小画布")}
             className={styles.iconButton}
             disabled={zoom <= 0.42}
             onClick={() => setZoom((current) => Math.max(0.42, current - 0.08))}
-            title="缩小画布"
+            title={t("缩小画布")}
             type="button"
           >
             <ZoomOut aria-hidden="true" size={17} />
           </button>
           <span className={styles.zoomValue}>{Math.round(zoom * 100)}%</span>
           <button
-            aria-label="放大画布"
+            aria-label={t("放大画布")}
             className={styles.iconButton}
             disabled={zoom >= 1.22}
             onClick={() => setZoom((current) => Math.min(1.22, current + 0.08))}
-            title="放大画布"
+            title={t("放大画布")}
             type="button"
           >
             <ZoomIn aria-hidden="true" size={17} />
@@ -466,30 +467,30 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
           <button
             className={styles.commandButton}
             onClick={resetTreeLayout}
-            title="恢复默认树形布局"
+            title={t("恢复默认树形布局")}
             type="button"
           >
             <LayoutTemplate aria-hidden="true" size={16} />
-            <span>树形布局</span>
+            <span>{t("树形布局")}</span>
           </button>
           <button
             className={styles.commandButton}
             onClick={addSellingPoint}
-            title="新增卖点"
+            title={t("新增卖点")}
             type="button"
           >
             <Plus aria-hidden="true" size={16} />
-            <span>新增卖点</span>
+            <span>{t("新增卖点")}</span>
           </button>
           <button
             className={styles.primaryButton}
             disabled={status === "exporting" || status === "uploading"}
             onClick={exportPdp}
-            title="导出 PDP 长图"
+            title={t("导出 PDP 长图")}
             type="button"
           >
             <Download aria-hidden="true" size={16} />
-            <span>{status === "exporting" ? "导出中" : "导出长图"}</span>
+            <span>{status === "exporting" ? t("导出中") : t("导出长图")}</span>
           </button>
         </div>
       </div>
@@ -517,9 +518,9 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
 
         <aside className={styles.inspector}>
           <div className={styles.inspectorHeader}>
-            <span className={styles.inspectorLabel}>当前图层</span>
+            <span className={styles.inspectorLabel}>{t("当前图层")}</span>
             <select
-              aria-label="当前图层"
+              aria-label={t("当前图层")}
               className={styles.layerSelect}
               onChange={(event) => setSelectedBlockId(event.target.value)}
               value={selectedBlockId}
@@ -531,7 +532,7 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
               ))}
             </select>
             <div className={styles.selectionMeta}>
-              <strong>{blockTitle(selectedBlock, selectedPoint)}</strong>
+              <strong>{blockTitle(selectedBlock, selectedPoint, t)}</strong>
               {selectedBlock?.kind === "selling-point" ? (
                 <span className={styles.priorityBadge}>
                   P{selectedPoint?.priority ?? selectedBlock.priority ?? 1} · SP
@@ -545,9 +546,9 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
             {selectedBlock?.kind === "selling-point" && selectedPoint ? (
               <>
                 <label className={styles.field}>
-                  黑色标题
+                  {t("黑色标题")}
                   <input
-                    aria-label="卖点标题"
+                    aria-label={t("卖点标题")}
                     onChange={(event) =>
                       updateSelectedPoint({ title: event.target.value })
                     }
@@ -555,9 +556,9 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
                   />
                 </label>
                 <label className={styles.field}>
-                  灰色说明
+                  {t("灰色说明")}
                   <textarea
-                    aria-label="卖点说明"
+                    aria-label={t("卖点说明")}
                     onChange={(event) =>
                       updateSelectedPoint({ benefit: event.target.value })
                     }
@@ -578,16 +579,16 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
                     type="button"
                   >
                     <Trash2 aria-hidden="true" size={15} />
-                    移除卖点
+                    {t("移除卖点")}
                   </button>
                 </div>
               </>
             ) : selectedBlock?.kind === "kv" ? (
               <>
                 <label className={styles.field}>
-                  KV 标题
+                  {t("KV 标题")}
                   <input
-                    aria-label="KV 标题"
+                    aria-label={t("KV 标题")}
                     maxLength={160}
                     onChange={(event) => {
                       setCoverTitle(event.target.value);
@@ -597,9 +598,9 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
                   />
                 </label>
                 <label className={styles.field}>
-                  KV 说明
+                  {t("KV 说明")}
                   <textarea
-                    aria-label="KV 说明"
+                    aria-label={t("KV 说明")}
                     maxLength={320}
                     onChange={(event) => {
                       setCoverSubtitle(event.target.value);
@@ -618,8 +619,8 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
               </>
             ) : (
               <div className={styles.inspectorSummary}>
-                <strong>{blockTitle(selectedBlock, selectedPoint)}</strong>
-                <p>{generatedBlockSummary(selectedBlock, activePoints.length)}</p>
+                <strong>{blockTitle(selectedBlock, selectedPoint, t)}</strong>
+                <p>{generatedBlockSummary(selectedBlock, activePoints.length, t)}</p>
               </div>
             )}
           </div>
@@ -639,7 +640,7 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
           file={pendingCrop.file}
           onCancel={cancelImageCrop}
           onConfirm={uploadCroppedImage}
-          title="裁切 PDP 配图"
+          title={t("裁切 PDP 配图")}
         />
       ) : null}
 
@@ -647,12 +648,12 @@ export function PdpCanvasEditor({ products }: { products: ProductWithProfile[] }
       {result ? (
         <div className={styles.resultBar}>
           <span className={styles.resultMeta}>
-            {result.templateVersion} · {result.sectionCount} 个卖点
+            {t("{version} · {count} 个卖点", { version: result.templateVersion, count: result.sectionCount })}
             {result.missingImageSlots.length
-              ? ` · ${result.missingImageSlots.length} 个待补图`
+              ? t(" · {count} 个待补图", { count: result.missingImageSlots.length })
               : ""}
           </span>
-          <a href={result.url} rel="noreferrer" target="_blank">打开导出文件</a>
+          <a href={result.url} rel="noreferrer" target="_blank">{t("打开导出文件")}</a>
         </div>
       ) : null}
     </section>
@@ -670,16 +671,17 @@ function ImageAssetField({
   onChange: (assetId: string) => void;
   onUpload: () => void;
 }) {
+  const { t } = useI18n();
   return (
     <label className={styles.field}>
-      配图
+      {t("配图")}
       <span className={styles.assetActions}>
         <select
-          aria-label="配图"
+          aria-label={t("配图")}
           onChange={(event) => onChange(event.target.value)}
           value={assetId}
         >
-          <option value="">待上传</option>
+          <option value="">{t("待上传")}</option>
           {assets.map((asset) => (
             <option key={asset.id} value={asset.id}>
               {asset.filename}
@@ -687,10 +689,10 @@ function ImageAssetField({
           ))}
         </select>
         <button
-          aria-label="上传配图"
+          aria-label={t("上传配图")}
           className={styles.iconButton}
           onClick={onUpload}
-          title="上传配图"
+          title={t("上传配图")}
           type="button"
         >
           <Upload aria-hidden="true" size={16} />
@@ -746,10 +748,11 @@ function blockOptionLabel(block: PdpCanvasBlock, points: EditablePoint[]): strin
 
 function blockTitle(
   block: PdpCanvasBlock | undefined,
-  point: EditablePoint | undefined
+  point: EditablePoint | undefined,
+  translate: (key: string, params?: Record<string, string | number>) => string
 ): string {
   if (!block) {
-    return "未选择";
+    return translate("未选择");
   }
   if (block.kind === "selling-point") {
     return point?.title || "Selling point";
@@ -759,34 +762,38 @@ function blockTitle(
 
 function generatedBlockSummary(
   block: PdpCanvasBlock | undefined,
-  sellingPointCount: number
+  sellingPointCount: number,
+  translate: (key: string, params?: Record<string, string | number>) => string
 ): string {
   if (block?.kind === "brand") {
-    return "固定品牌头图，使用系统品牌素材。";
+    return translate("固定品牌头图，使用系统品牌素材。");
   }
   if (block?.kind === "features") {
-    return `根据 ${sellingPointCount} 个卖点自动生成图标索引。`;
+    return translate("根据 {count} 个卖点自动生成图标索引。", { count: sellingPointCount });
   }
   if (block?.kind === "specification") {
-    return `根据 ${sellingPointCount} 个卖点自动生成参数表。`;
+    return translate("根据 {count} 个卖点自动生成参数表。", { count: sellingPointCount });
   }
-  return "选择画布中的内容块。";
+  return translate("选择画布中的内容块。");
 }
 
-function statusLabel(status: EditorStatus): string {
+function statusLabel(
+  status: EditorStatus,
+  translate: (key: string) => string
+): string {
   if (status === "uploading") {
-    return "上传中";
+    return translate("上传中");
   }
   if (status === "exporting") {
-    return "导出中";
+    return translate("导出中");
   }
   if (status === "done") {
-    return "已导出";
+    return translate("已导出");
   }
   if (status === "failed") {
-    return "失败";
+    return translate("失败");
   }
-  return "就绪";
+  return translate("就绪");
 }
 
 function byPriority(left: SellingPoint, right: SellingPoint): number {

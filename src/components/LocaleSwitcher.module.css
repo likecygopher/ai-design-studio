@@ -1,0 +1,27 @@
+.switcher {
+  display: inline-flex;
+  gap: 2px;
+  padding: 2px;
+  border: 1px solid rgba(56, 81, 111, 0.2);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.36);
+}
+
+.button {
+  border: 0 !important;
+  border-radius: 999px !important;
+  padding: 3px 9px !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: var(--muted) !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  box-shadow: none !important;
+  backdrop-filter: none !important;
+  cursor: pointer;
+}
+
+.button[data-active="true"] {
+  background: #24282c !important;
+  color: #fff !important;
+}

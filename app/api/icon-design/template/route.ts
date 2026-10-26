@@ -1,6 +1,8 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { createUserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import type { Asset, AssetType } from "@/src/domain/types";
-import { createDemoAssetStore } from "@/src/services/demo-api";
 import { extractIconViPromptTemplate } from "@/src/services/vi-prompt-extractor";
 
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp"]);
@@ -15,7 +17,8 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "请先上传品牌色彩 VI 和 Icon 设计 VI。" }, { status: 400 });
   }
 
-  const imageStore = createDemoAssetStore();
+  const userId = await requireUserId();
+  const imageStore = createUserWorkspace(userId).imageStore;
   const assets = await imageStore.readAssetManifest();
   const viColorAsset = findTypedAsset(assets, viColorAssetId, "icon-vi-color");
   const viStyleAsset = findTypedAsset(assets, viStyleAssetId, "icon-vi-style");

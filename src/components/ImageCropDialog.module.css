@@ -135,7 +135,7 @@
 }
 
 .primaryButton {
-  background: rgba(0, 73, 187, 0.8);
+  background: linear-gradient(180deg, #37444a, #202a30);
   color: #fff;
 }
 

@@ -1,23 +1,23 @@
 import { join } from "node:path";
-import { readRuntimeFile } from "@/src/services/runtime-files";
+import { getSessionUser } from "@/src/platform/auth";
+import { serveOwnedRuntimeFile } from "@/src/platform/runtime-file-response";
 
-// Serves files uploaded after `next build`; static public/ serving only
-// covers files that existed at build time.
+const UPLOADS_ROOT = join(process.cwd(), "public", "uploads");
+
+// Serves files uploaded after `next build`; static public/ serving only covers
+// files that existed at build time. Ownership is enforced per path segment.
 export async function GET(
   _request: Request,
   { params }: { params: Promise<{ path: string[] }> }
 ) {
-  const { path } = await params;
-  const file = await readRuntimeFile(join(process.cwd(), "public", "uploads"), path);
-
-  if (!file) {
-    return new Response("Not found", { status: 404 });
+  const user = await getSessionUser();
+  if (!user) {
+    return Response.json(
+      { error: "请先登录后再访问文件。", code: "AUTH_REQUIRED" },
+      { status: 401 }
+    );
   }
 
-  return new Response(new Uint8Array(file.bytes), {
-    headers: {
-      "Content-Type": file.contentType,
-      "Cache-Control": "no-store"
-    }
-  });
+  const { path } = await params;
+  return serveOwnedRuntimeFile(UPLOADS_ROOT, path, user);
 }

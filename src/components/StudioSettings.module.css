@@ -15,7 +15,8 @@
 .backgrounds span { display: flex; align-items: center; justify-content: space-between; padding: 8px 3px 4px; font-size: 11px; }
 .actions { display: flex; align-items: center; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
 .primary, .secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 34px; padding: 8px 12px; border: 1px solid #d6dcd5; border-radius: 7px; background: #fff; font: inherit; font-size: 11px; color: #333a37; cursor: pointer; }
-.primary { background: #30383b; color: #fff; border-color: #30383b; }
+.primary { background: linear-gradient(180deg, #37444a, #202a30); color: #fff; border-color: #303b40; }
+.primary:hover:not(:disabled) { background: linear-gradient(180deg, #46545a, #2a353b); border-color: #46545a; color: #fff; }
 .secondary:has(input) { position: relative; }
 .secondary input { position: absolute; inset: 0; width: 100%; opacity: 0; cursor: pointer; }
 .secondary:focus-within { outline: 2px solid #b8914b; outline-offset: 3px; }

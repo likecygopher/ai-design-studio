@@ -1,91 +1,158 @@
+import { redirect } from "next/navigation";
 import { AppShell } from "@/src/components/AppShell";
-import {
-  aggregateCostRecords,
-  readDemoCostRecords,
-  type CostAggregateRow
-} from "@/src/services/demo-api";
+import { getSessionUser } from "@/src/platform/auth";
+import { prisma } from "@/src/platform/db";
+import { getBudgetSnapshot } from "@/src/platform/quotas";
+import { translate, type Locale } from "@/src/i18n/core";
+import { getLocale } from "@/src/i18n/server";
 
-// Live ledger records must appear immediately during the on-stage demo.
 export const dynamic = "force-dynamic";
 
-const reductionMechanisms = [
-  {
-    title: "模板引擎 0 调用",
-    detail: "POP 平面稿与 PDP 长图由本地模板引擎确定性渲染,不消耗模型调用;只有写实场景图需要图像模型。"
-  },
-  {
-    title: "预设与规则库",
-    detail: "国家/语言层级卖点顺序、品牌限制、角度与风格提示词均为固定预设,重复生成时无需重新写 Prompt。"
-  },
-  {
-    title: "素材复用",
-    detail: "白底图、平面稿、卖点图入库后可跨 POP/PDP/本地化任务直接复用,避免重复生成同一基础素材。"
+type AggregateRow = { key: string; units: number; count: number };
 
+function aggregate(rows: Array<{ estimatedUnits: number }>, pick: (row: { estimatedUnits: number; [key: string]: unknown }) => string | null | undefined): AggregateRow[] {
+  const map = new Map<string, AggregateRow>();
+  for (const row of rows) {
+    const key = pick(row as { estimatedUnits: number; [key: string]: unknown });
+    const label = key && key.trim() ? key : "__unlabeled__";
+    const current = map.get(label) ?? { key: label, units: 0, count: 0 };
+    current.units += row.estimatedUnits;
+    current.count += 1;
+    map.set(label, current);
   }
-];
+  return [...map.values()].toSorted((left, right) => right.units - left.units);
+}
 
 export default async function CostsPage() {
-  const costRows = (await readDemoCostRecords()).filter(
+  const locale = await getLocale();
+  const t = (key: string, params?: Record<string, string | number>) =>
+    translate(locale, key, params);
+  const user = await getSessionUser();
+  if (!user) {
+    redirect("/login");
+  }
+
+  const [records, budget] = await Promise.all([
+    prisma.costRecord.findMany({
+      where: { userId: user.id },
+      orderBy: { createdAt: "desc" },
+      take: 200
+    }),
+    getBudgetSnapshot(user.id)
+  ]);
+
+  const costRows = records.filter(
     (row) => !row.isFallback && !/mock|fallback/i.test(row.mode)
   );
-  const summary = aggregateCostRecords(costRows);
+  const byTask = aggregate(costRows, (row) => String(row.task));
+  const byCountry = aggregate(costRows, (row) => String(row.country));
+  const byLanguage = aggregate(costRows, (row) => String(row.language));
+  const byMode = aggregate(costRows, (row) => String(row.mode));
+
+  const budgetLabel =
+    budget.budgetUnits === null
+      ? t("costs.unlimited")
+      : t("costs.units", { units: budget.budgetUnits });
+  const budgetWidth = budget.percent === null ? 0 : Math.min(100, budget.percent);
 
   return (
     <AppShell>
-      <h1 style={{ fontSize: 30, marginBottom: 8 }}>资源消耗说明 / Resource Traceability</h1>
-      <p style={{ color: "var(--muted)", marginBottom: 18, maxWidth: 860 }}>
-        每次生成都会记录任务环节、模型、调用模式、国家、语言、源素材和预计消耗单位;
-        支持按任务 / 国家 / 语言 / 模式查看,并可作为后续台账与对账基础。
-      </p>
+      <h1 style={{ fontSize: 30, marginBottom: 18 }}>{t("costs.title")}</h1>
 
       <section
-        aria-label="按维度汇总"
-        style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 18 }}
+        aria-label={t("costs.budget")}
+        style={{
+          background: "var(--studio-glass-card, #ffffff)",
+          border: "1px solid #d9e0e7",
+          borderRadius: 8,
+          padding: 16,
+          marginBottom: 18
+        }}
       >
-        <AggregateCard title="按任务环节" rows={summary.byTask} />
-        <AggregateCard title="按国家版本" rows={summary.byCountry} />
-        <AggregateCard title="按语言版本" rows={summary.byLanguage} />
-        <AggregateCard title="按调用模式" rows={summary.byMode} />
-      </section>
-
-      <section style={{ background: "var(--studio-glass-card, #ffffff)", border: "1px solid #d9e0e7", borderRadius: 8, marginBottom: 18, padding: 18 }}>
-        <h2 style={{ fontSize: 18, margin: "0 0 6px" }}>如何减少重复调用</h2>
-        <p style={{ color: "var(--muted)", margin: "0 0 12px" }}>
-          消耗水平主要受图像模型调用次数、输出分辨率与重试次数影响;以下机制把重复调用压到最低:
-        </p>
-        <div style={{ display: "grid", gap: 12, gridTemplateColumns: "repeat(auto-fit, minmax(240px, 1fr))" }}>
-          {reductionMechanisms.map((item) => (
-            <article key={item.title} style={{ background: "var(--studio-glass-subtle, #f7f8fa)", border: "1px solid #e5e8ec", borderRadius: 8, padding: 12 }}>
-              <strong style={{ display: "block", marginBottom: 6 }}>{item.title}</strong>
-              <span style={{ color: "var(--muted)" }}>{item.detail}</span>
-            </article>
-          ))}
+        <div style={{ display: "flex", justifyContent: "space-between", gap: 12, marginBottom: 10 }}>
+          <strong style={{ color: "var(--accent-strong)", fontSize: 13 }}>{t("costs.budget")}</strong>
+          <span style={{ color: budget.exceeded ? "#7b2f2f" : "var(--muted)", fontSize: 12 }}>
+            {budget.usedUnits} / {budgetLabel}
+            {budget.exceeded
+              ? ` · ${t("costs.exhausted")}`
+              : budget.percent !== null
+                ? ` · ${t("costs.usedPercent", { percent: budget.percent })}`
+                : ""}
+          </span>
+        </div>
+        <div
+          role="progressbar"
+          aria-label="Budget usage"
+          aria-valuemin={0}
+          aria-valuemax={100}
+          aria-valuenow={budgetWidth}
+          style={{ height: 8, borderRadius: 999, background: "rgba(56,81,111,0.14)", overflow: "hidden" }}
+        >
+          <span
+            style={{
+              display: "block",
+              height: "100%",
+              width: `${budgetWidth}%`,
+              borderRadius: 999,
+              background: budget.exceeded
+                ? "#b06a6a"
+                : budget.percent !== null && budget.percent >= 80
+                  ? "#b8914b"
+                  : "#4f6f8f"
+            }}
+          />
         </div>
       </section>
 
-      <h2 style={{ fontSize: 18, margin: "0 0 10px" }}>调用明细台账</h2>
+      <section
+        aria-label="Usage summary"
+        style={{ display: "grid", gap: 14, gridTemplateColumns: "repeat(auto-fit, minmax(220px, 1fr))", marginBottom: 18 }}
+      >
+        <AggregateCard title={t("costs.byTask")} rows={byTask} locale={locale} />
+        <AggregateCard title={t("costs.byCountry")} rows={byCountry} locale={locale} />
+        <AggregateCard title={t("costs.byLanguage")} rows={byLanguage} locale={locale} />
+        <AggregateCard title={t("costs.byMode")} rows={byMode} locale={locale} />
+      </section>
+
+      <h2 style={{ fontSize: 18, margin: "0 0 10px" }}>{t("costs.detail")}</h2>
       <table style={{ background: "var(--studio-glass-card, #ffffff)", borderCollapse: "collapse", width: "100%" }}>
         <thead>
           <tr>
-            {["Task", "Model", "Mode", "Country", "Language", "Units", "Sources", "Time"].map((head) => (
+            {[
+              t("costs.task"),
+              t("costs.model"),
+              t("costs.mode"),
+              t("costs.country"),
+              t("costs.language"),
+              t("costs.unit"),
+              t("costs.assets"),
+              t("costs.time")
+            ].map((head) => (
               <th key={head} style={{ border: "1px solid #d9e0e7", padding: 12, textAlign: "left" }}>{head}</th>
             ))}
           </tr>
         </thead>
         <tbody>
-          {costRows.map((row, index) => (
-            <tr key={`${row.taskId ?? row.task}-${row.country}-${index}`}>
+          {costRows.length === 0 ? (
+            <tr>
+              <td colSpan={8} style={{ border: "1px solid #d9e0e7", padding: 12, color: "var(--muted)", textAlign: "center" }}>
+                {t("costs.empty")}
+              </td>
+            </tr>
+          ) : null}
+          {costRows.map((row) => (
+            <tr key={row.id}>
               <td style={cellStyle}>{row.task}</td>
               <td style={cellStyle}>{row.model}</td>
               <td style={cellStyle}>{row.mode}</td>
-              <td style={cellStyle}>{row.country}</td>
-              <td style={cellStyle}>{row.language}</td>
+              <td style={cellStyle}>{row.country || "—"}</td>
+              <td style={cellStyle}>{row.language || "—"}</td>
               <td style={cellStyle}>{row.estimatedUnits}</td>
               <td style={{ ...cellStyle, color: "var(--muted)" }}>
-                {row.sourceAssetIds?.join(", ") ?? "demo baseline"}
+                {Array.isArray(row.sourceAssetIds) ? (row.sourceAssetIds as string[]).join(", ") || "—" : "—"}
               </td>
               <td style={{ ...cellStyle, color: "var(--muted)" }}>
-                {row.createdAt ? row.createdAt.replace("T", " ").slice(0, 19) : "—"}
+                {row.createdAt.toISOString().replace("T", " ").slice(0, 19)}
               </td>
             </tr>
           ))}
@@ -95,16 +162,31 @@ export default async function CostsPage() {
   );
 }
 
-function AggregateCard({ title, rows }: { title: string; rows: CostAggregateRow[] }) {
+const cellStyle: React.CSSProperties = { border: "1px solid #d9e0e7", padding: 12 };
+
+function AggregateCard({
+  title,
+  rows,
+  locale
+}: {
+  title: string;
+  rows: AggregateRow[];
+  locale: Locale;
+}) {
   return (
     <article style={{ background: "var(--studio-glass-card, #ffffff)", border: "1px solid #d9e0e7", borderRadius: 8, padding: 16 }}>
       <strong style={{ color: "var(--accent-strong)", display: "block", fontSize: 13, marginBottom: 10 }}>{title}</strong>
       <div style={{ display: "grid", gap: 6 }}>
+        {rows.length === 0 ? (
+          <span style={{ color: "var(--muted)" }}>{translate(locale, "costs.noData")}</span>
+        ) : null}
         {rows.map((row) => (
           <div key={row.key} style={{ display: "flex", justifyContent: "space-between", gap: 8 }}>
-            <span style={{ color: "#17202a" }}>{row.key}</span>
-            <span style={{ color: "var(--muted)", whiteSpace: "nowrap" }}>
-              {row.records} 次 / {row.units} 单位
+            <span style={{ color: "#17202a" }}>
+              {row.key === "__unlabeled__" ? translate(locale, "costs.uncategorized") : row.key}
+            </span>
+            <span style={{ color: "var(--muted)" }}>
+              {translate(locale, "costs.summary", { units: row.units, count: row.count })}
             </span>
           </div>
         ))}
@@ -112,5 +194,3 @@ function AggregateCard({ title, rows }: { title: string; rows: CostAggregateRow[
     </article>
   );
 }
-
-const cellStyle = { border: "1px solid #d9e0e7", padding: 12 } as const;

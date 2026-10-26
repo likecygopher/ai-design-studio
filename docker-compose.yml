@@ -1,0 +1,143 @@
+# Local/production-like orchestration for the commercial platform baseline.
+#   postgres -> migrate (one-shot) -> web  (Next.js standalone)
+#                                \-> worker (queue consumer)
+#
+# Usage:
+#   AUTH_SECRET="$(openssl rand -base64 32)" docker compose up -d --build
+#   docker compose ps / docker compose logs -f web worker
+# See docs/runbook.md for deployment, migration and troubleshooting procedures.
+
+# Shared application environment for web + worker. Provider keys are optional and
+# are passed through from the host environment — never hardcode secrets here.
+x-app-env: &app-env
+  DATABASE_URL: "postgresql://midea:midea@postgres:5432/midea_ai_studio?schema=public"
+  AUTH_SECRET: ${AUTH_SECRET:?set AUTH_SECRET (>=32 chars, e.g. openssl rand -base64 32)}
+  AUTH_TRUST_HOST: "true"
+  APP_URL: ${APP_URL:-http://localhost:3000}
+  # Persistent storage volume, mounted at /data for both processes.
+  STORAGE_ROOT: /data
+  # AI providers (optional at boot; required for real generation).
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  OPENAI_BASE_URL: ${OPENAI_BASE_URL:-}
+  OPENAI_IMAGE_MODEL: ${OPENAI_IMAGE_MODEL:-}
+  OPENAI_TEXT_MODEL: ${OPENAI_TEXT_MODEL:-}
+  ARK_API_KEY: ${ARK_API_KEY:-}
+  ARK_BASE_URL: ${ARK_BASE_URL:-}
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: midea-ai-postgres
+    restart: unless-stopped
+    ports:
+      - "${POSTGRES_PORT:-5433}:5432"
+    environment:
+      POSTGRES_USER: midea
+      POSTGRES_PASSWORD: midea
+      POSTGRES_DB: midea_ai_studio
+    volumes:
+      - midea_pg_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U midea -d midea_ai_studio"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # One-shot schema migration. Runs `prisma migrate deploy` from the builder
+  # stage (the standalone web image ships the client, not the Prisma CLI), and
+  # must succeed before web/worker start.
+  migrate:
+    build:
+      context: .
+      target: builder
+    image: midea-ai-studio-migrate:local
+    container_name: midea-ai-migrate
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      <<: *app-env
+    command: ["node_modules/.bin/prisma", "migrate", "deploy"]
+
+  web:
+    build:
+      context: .
+      target: runner
+    image: midea-ai-studio-web:local
+    container_name: midea-ai-web
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    ports:
+      - "${WEB_PORT:-3000}:3000"
+    environment:
+      <<: *app-env
+      # /api/ready requires a fresh worker heartbeat (compose runs the worker).
+      READY_REQUIRE_WORKER: "true"
+      JOB_CONCURRENCY: ${JOB_CONCURRENCY:-3}
+      MAX_USER_ACTIVE_JOBS: ${MAX_USER_ACTIVE_JOBS:-2}
+      RATE_LIMIT_LIMIT: ${RATE_LIMIT_LIMIT:-30}
+      RATE_LIMIT_WINDOW_MS: ${RATE_LIMIT_WINDOW_MS:-60000}
+    volumes:
+      # Uploads and generated assets must survive container restarts (R5.3/R6.5).
+      - studio-storage:/data
+    healthcheck:
+      test:
+        - CMD
+        - node
+        - -e
+        - "fetch('http://127.0.0.1:3000/api/health').then((r) => process.exit(r.ok ? 0 : 1)).catch(() => process.exit(1))"
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      start_period: 30s
+
+  # One-shot admin seed for the first deployment. Enable with
+  # `docker compose --profile seed run --rm seed` (or use `pnpm deploy:docker`).
+  seed:
+    profiles: ["seed"]
+    build:
+      context: .
+      target: builder
+    image: midea-ai-studio-seed:local
+    container_name: midea-ai-seed
+    restart: "no"
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *app-env
+      NODE_ENV: production
+      SEED_ADMIN_EMAIL: ${SEED_ADMIN_EMAIL:-admin@example.com}
+      SEED_ADMIN_PASSWORD: ${SEED_ADMIN_PASSWORD:?set SEED_ADMIN_PASSWORD in .env.docker}
+    command: ["node_modules/.bin/tsx", "prisma/seed.ts"]
+
+  worker:
+    build:
+      context: .
+      target: worker
+    image: midea-ai-studio-worker:local
+    container_name: midea-ai-worker
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
+    environment:
+      <<: *app-env
+      JOB_CONCURRENCY: ${JOB_CONCURRENCY:-3}
+      MAX_USER_ACTIVE_JOBS: ${MAX_USER_ACTIVE_JOBS:-2}
+      WORKER_POLL_MS: ${WORKER_POLL_MS:-2000}
+    volumes:
+      - studio-storage:/data
+
+volumes:
+  midea_pg_data:
+  studio-storage:

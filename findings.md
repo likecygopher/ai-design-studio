@@ -233,3 +233,127 @@
 - User approved keeping POP local-only: do not restore AI placement or a misleading model selector. Implement the remaining three existing workflows, with one choice per POP material group and deterministic export.
 - Visual direction: retain current wallpaper and compact glass dashboard, charcoal headings, quiet gray helper text, pale-gold selected borders, dark pill actions, and responsive stacked panels. Use the PDF layout as authority rather than introducing a new visual system.
 - First POP browser render confirms independent per-group controls and actual product photo. Existing AppShell global important rules override the initial page heading and main action; requested local scoped overrides matching the completed style-transfer page, not a shared-shell redesign. A favicon 404 and two existing CSS alignment warnings appeared; no workflow runtime exception.
+
+## 2026-10-26 SDD commercial platform
+- `origin/main` PR #2 intentionally replaced the POP AI-scene flow with local composition (see 2026-07-22 decision), so the WIP platform patch that routed POP through the job queue was obsolete: conflict resolved in favour of upstream and the scene-job integration dropped from `PopCanvasStudio`.
+- Local platform layer under `src/platform/**` was uncommitted WIP from a previous session; it is now completed and documented rather than re-designed.
+- NextAuth v5 names the session cookie `authjs.session-token` (HTTPS: `__Secure-authjs.session-token`). Custom middleware must pass `secureCookie` accordingly or production (TLS) deployments appear unauthenticated and redirect-loop to `/login`.
+- Next.js route files may only export HTTP handlers/config: helper exports in `app/api/**/route.ts` fail `next build` type checks; download-header helpers were moved to `src/platform/storage/download-headers.ts`.
+- Static `/uploads` and `/generated` route handlers served any user's file by URL; they now enforce `path[0] === userId || admin`. `/api/outputs` was scanning the entire generated directory and now reads the per-user asset manifest.
+- Legacy baseline failures were real drift, not flaky tests: cover-page chat container class, icon-design multi-reference prompt wording, PDP brand statement pass-through, and warranty copy fixture. All four fixed at the source of truth.
+- Worker heartbeat must be sent before the first poll, otherwise `/api/ready` flaps 503 immediately after deploy; the runtime now heartbeats on start and on an unref'd interval.
+- Verification used a local production server plus real PostgreSQL; no paid AI provider calls were made (all generation paths mocked or cancelled).
+
+## 2026-10-26 Admin account management & auth UI
+- NextAuth JWT strategy cannot revoke a session by itself. Adding `User.authVersion` (bumped on password reset/change) plus a DB re-check in `getSessionUser()` gives immediate revocation and disabled-account enforcement at the cost of one primary-key lookup per authenticated request; this is the documented P1 cache point.
+- RSC pages cannot clear cookies, so an invalidated session must be routed through `/api/auth/expire` (clears `authjs` session/csrf/callback cookies, redirects to `/login?expired=1`). Middleware must allow `/login?expired=1` even when a stale token is present, otherwise `/login` bounces back to `/studio-home` forever.
+- Route handlers behind `next start` can see an internal `request.url` host (e.g. localhost); redirects must be built from `x-forwarded-host`/`x-forwarded-proto` (or Host) to avoid sending browsers to an internal address in production.
+- `AppShell.module.css` contains legacy broad `!important` button overrides inside `.main`; page-specific modules must opt in with equal-or-higher specificity (`... [type="button"]` + `!important`) to keep the dark-pill action style. Documented in `AdminUsers.module.css` / `AccountSecurity.module.css`.
+- The admin user table needs `min-width: 720px` (not 860) to fit the 16:9 studio workbench without horizontal clipping at 1440×900; row action labels were shortened to "改密" while aria-labels keep the full description.
+- Headless Chrome with `--window-size=390` enforces a larger minimum layout viewport and produced a false "mobile overflow" signal; Playwright Chromium with an explicit 390×844 viewport (or the CSS max-width fix) is the reliable check.
+
+## 2026-10-26 Product-facing copy cleanup
+- User judged explanatory UI copy as "prototype sketch". Adopted a copy policy: operational UI carries only labels, states, constraints, errors and empty states; product intros/tutorials/marketing/disclaimers move out of the interface (docs or collapsed help).
+- Constraints are kept but capped to one line (e.g. `8 位以上，含字母与数字。`), and destructive actions keep their consequence (`重置后该用户需重新登录。`) — these are product requirements, not explanatory prose.
+- Removed decorative English eyebrows (`PRODUCT STICKER COMPOSITOR`, `PDP CANVAS EDITOR`, `BRAND ICON STANDARDIZATION`, `AI CONTENT STUDIO` inside every dialog) and marketing bullets on auth pages; kept the brand lockup and one-line brand statement.
+- Page-level intro paragraphs were spread across inline styles in `app/**/page.tsx` and component headers (`styles.hint`, inline `<p>`); the cleanup had to touch both layers. Empty states (assets/costs/jobs) were added or kept so removed copy does not leave blank panels.
+- Cost ledger table headers were localised and empty states added; this keeps the page data-first instead of documentation-first.
+
+## 2026-10-26 Auth visual + form controls
+- The login left column now uses an existing brand render (`public/midea-ai/midea-finale-city.png`) instead of copy; it is decorative (`aria-hidden`) and hidden below 1024px, while the brand lockup lives in the form card so mobile keeps identity.
+- Input inconsistency came from successive `AppShell.module.css` phases: a late rule forced `select` to 42px height / 40px line-height and text inputs to 10px font, while each component added its own paddings/borders. Fixing it required one final, higher-specificity `.main` layer rather than editing every component.
+- `input[type=file]` cannot be reliably restyled across browsers (native "No file chosen" text); the asset library now renders a custom button + filename summary and hides the native control. Other components already hid their file inputs inside custom labels.
+- Unified control tokens: 34px height / 8px radius / 1px translucent border / glass fill / 11.5px text / gold focus ring; textareas keep a 68px min-height and vertical resize; checkbox/radio use a 14px gold accent.
+
+## 2026-10-27 Extensible provider registry
+- Hardcoding two providers did not scale. Replaced with an `AiProvider` registry keyed by implementation *channel* (`openai-compatible` / `ark`); arbitrary OpenAI-compatible vendors (DeepSeek/Kimi/Qwen/OpenRouter/custom gateways) share one channel, while ARK keeps its Seedream/Seedance specifics.
+- Runtime code still reads `process.env`, so activation is implemented as "first enabled provider per channel (priority, then createdAt)" projected onto that channel's env keys; existing provider call sites stay untouched. `设为生效` simply lowers priority.
+- Edge bundling bit us again: importing the config layer from `instrumentation.ts` pulled `node:crypto` into the Edge bundle. Hydration is now lazy (`ensureAiConfigHydrated` at provider entry points), worker refreshes every 60s, and CRUD refreshes the current process immediately.
+- Admin table width is constrained by the 16:9 studio workbench (~783px). Dropping the Base URL column (kept in the edit dialog) and using icon-only row actions was necessary to show all actions without horizontal clipping.
+- Admin completeness added: `/admin` overview and `/admin/audit` viewer reuse the existing stats/health/audit APIs; audit search was extended to `targetType` so provider actions are findable.
+
+## 2026-10-27 Job ops & budget
+- Retry is implemented as "clone failed/cancelled job into a new job" rather than resetting the old row: history stays immutable, budget/quota checks run through the normal enqueue path, and idempotency uses `retry:<jobId>:<uuid>` so repeated clicks don't collide.
+- Budget is enforced at enqueue time using prior usage only (not a forward estimate). That is simple and race-safe enough for the current throughput; per-job estimated reservations can come later if concurrent overspend matters.
+- Storing the budget on `User` (null=default, 0=unlimited) keeps admin editing trivial and avoids a second table; platform default stays in env so no settings UI is required for v1.
+- Cost page previously read the demo file ledger; switched to Prisma so the budget and the visible ledger agree. `/api/costs` now returns the same snapshot.
+- CSP needs `'unsafe-inline'` for Next's bootstrap scripts; a nonce middleware is the follow-up to tighten `script-src`.
+- Admin jobs table actions are icon-only to fit the 16:9 workbench width, consistent with the AI provider table.
+
+## 2026-10-27 Provider health & failover
+- Failover is workload-level rather than in-request retry: the worker retry loop is already a robust retry mechanism, so rotating the active provider (DB priority) after repeated failures avoids mutating global env under concurrency and gives every channel a clean "next attempt uses fallback" semantic.
+- Channel attribution is derived from job type/payload (`product-video` -> ARK, `imageModel=doubao` -> ARK, else OpenAI-compatible). That is a heuristic; when job payloads gain explicit provider/model routing, attribution should switch to it.
+- Two consecutive failures is the threshold: one-off transient errors keep the provider, while a sustained outage rotates; a single-provider channel never rotates.
+- Stats live on `AiProvider` counters instead of a per-call table. This is enough for admin health and avoids unbounded growth; a `ProviderCall` history table can be added when per-period charts are needed.
+- Web sync routes need the 60s rehydrate timer because failover happens in the worker process; otherwise open web workers would keep the stale env.
+
+## 2026-10-27 Dependency hardening & E2E
+- `pnpm audit` initially reported 3 critical + 22 high. Root causes were outdated direct deps (Next 15.5.20, undici 6.21.3, sharp 0.34.5, zod 3) plus bundled transitive versions. Upgrading the four direct deps removed all criticals; pnpm 11 then required moving overrides to `pnpm-workspace.yaml` (the `package.json#pnpm` field is ignored), after which prod audit reached 0.
+- Overrides must pin major-compatible ranges: unconstrained `>=` pulled nanoid 6 / effect 4, which would have broken postcss/prisma. Pin `^3.3.18`, `~3.20.0`, `^8.0.2` and keep the previous `allowBuilds` list intact.
+- Zod 4 migration was small: `required_error` → `error`, `errorMap` → `message` on enums.
+- Playwright E2E logs in once via a setup project and reuses storageState; per-test logins would hit `LOGIN_MAX_ATTEMPTS=5` and fail intermittently. Anonymous check overrides storageState to empty.
+- CI runs E2E after build/seed in the same job to reuse the Postgres service and installed deps; browsers are installed only in that job.
+
+## 2026-10-27 2FA & sessions
+- Implemented TOTP locally (RFC 6238) instead of adding a dependency: the spec is small, test vectors are public, and it avoids another supply-chain surface. Base32 decoding, HOTP truncation and constant-time compare are covered by tests.
+- 2FA is checked inside NextAuth `authorize` after the password check; a missing/invalid code returns the same generic failure as a bad password to prevent account enumeration. The login form always shows an optional code field instead of a pre-flight "is 2FA enabled" endpoint (which would leak account state).
+- Sessions use a DB row plus `sessionId` in the JWT: this gives per-device revocation without switching NextAuth to DB sessions or storing session tokens server-side. `getSessionUser` validates the row on every authenticated request; `lastSeenAt` writes are throttled to 5 minutes.
+- Legacy JWTs without `sessionId` are tolerated for one rollout to avoid mass logouts; once everyone re-logs they are device-managed.
+- Recovery codes are hashed with SHA-256 (high-entropy one-time codes, no brute-force concern) and consumed atomically enough for the current single-write path.
+- Password changes/resets now revoke all device sessions in addition to bumping `authVersion`; `signOut` event revokes the current device row.
+- Account page layout is a 2-column grid; with four cards it scrolls below the fold on the 16:9 workbench, which is acceptable but could use tabs later.
+
+## 2026-10-27 i18n foundation
+- Chose a dependency-free dictionary over next-intl: the app needs only cookie-based locale switching with SSR, and avoiding another dependency keeps the audit surface at 0 vulnerabilities.
+- No Provider fallback returns Chinese, so existing component tests and embedded components keep working; the root layout injects the real locale for pages.
+- Switching uses a cookie + `router.refresh()` rather than URL prefixes: no duplicated routes, no redirects, and deep links keep working. The trade-off is that locale is not shareable in links (could add `?lang=` later).
+- Client components get locale via context; server components (costs page later) must call `getLocale()` explicitly.
+- Translation is incremental: shell/auth/account first because they are the product's "frame"; admin and workflow pages follow. Missing keys fall back to Chinese rather than showing raw keys, which avoids blank UI mid-migration.
+- Server-side business error messages remain Chinese for now; mapping error `code` to localized messages is the cleaner follow-up than translating every throw site.
+
+## 2026-10-27 Observability
+- In-process registry instead of Prometheus client: the metric surface is small, avoids a dependency, and keeps the audit at zero vulnerabilities. Multi-replica setups scrape each pod.
+- Route normalization is mandatory: raw paths include cuids and would blow up label cardinality; numeric/uuid/hex-ish segments become `:id`.
+- `/api/metrics` is admin/token-protected by default: metrics can reveal routes and traffic patterns. `METRICS_TOKEN` enables standard Prometheus scrape configs without a session.
+- Alerts are computed from live DB/health data in `/api/admin/health` rather than a separate alert engine; the admin overview polls it already, so no new service or scheduler is needed. Thresholds live in env for ops tuning.
+- Metrics reset on process restart; counters are meant for `rate()`/`increase()` queries, not absolute totals.
+
+## 2026-10-27 API tokens, webhooks, OpenAPI
+- The custom Edge middleware previously blocked every `/api/*` request without a session cookie, which silently defeated Bearer tokens. Fix: middleware only short-circuits on missing session when there is no Bearer header; actual token validation stays in Node (`handleApi`) because the Edge runtime cannot query Prisma.
+- Tokens store only SHA-256 and display a short prefix; plaintext is returned exactly once. Tokens inherit the owner's role, so an admin token can hit admin endpoints — same trust model as a session, simpler than per-route scopes for now (scopes field stored for future enforcement).
+- Webhooks are single-attempt with an 8s timeout and full delivery records: robust enough to debug, avoids retry storms, and never blocks job finalisation. The Worker hooks `completeJob`/`failJob` so all job paths are covered.
+- SSRF protection is hostname-based (https, no credentials, no localhost/private/.local/.internal). DNS rebinding is out of scope for v1; an allowlist or egress proxy is the production hardening step.
+- OpenAPI is hand-written but kept small and served publicly; it documents the actual contract (messages/routes) and is validated in tests so it won't drift silently.
+
+## 2026-10-27 Data governance
+- Export uses explicit Prisma `select` for every relation and excludes secrets/storage keys. The API test intentionally feeds extra fields from mocks and asserts they don't leak, guarding against future "select *" regressions.
+- Account deletion relies on DB cascades; asset files are unlinked best-effort with a path-escape guard, and the existing cleanup job covers leftovers. Audit rows survive deletion via `SetNull`, so operators retain an immutable trace of the deletion (email stored in metadata).
+- Last-admin protection is checked before password validation to avoid timing differences? Actually password is validated after the admin guard; the guard only counts admins, no sensitive leak either way.
+- Audit CSV uses a BOM so Excel detects UTF-8; metadata is JSON-encoded through the same escaping function. Bounded at 5000 rows to keep memory/response sane.
+- The delete endpoint returns `reauthRequired`; the UI signs out immediately. JWTs for a deleted user are rejected because `getSessionUser` cannot find the row, and tokens cascade-delete.
+
+## 2026-10-27 Redis rate limiting
+- Kept the synchronous memory limiter for tests/middleware and added an async interface for production. Route tests that call `setRateLimiter` still work via `AsyncMemoryRateLimiter` wrapping.
+- Fixed-window Redis counting (INCR+PEXPIRE) is simpler than a sorted-set sliding window and adequate for abuse control; the memory fallback remains sliding-window, so behavior differs slightly during outages.
+- First request after boot may hit the memory fallback because ioredis is still connecting (`enableOfflineQueue=false`); subsequent requests use Redis. This fail-open-to-memory choice avoids latency spikes/500s and is documented.
+- Edge middleware cannot use ioredis; it keeps its coarse login pre-check. The authoritative login throttle runs in Node with Redis, so multi-replica brute-force protection still holds after middleware.
+- Object storage is a larger refactor (write/read/delete/cleanup across asset store and routes); deliberately deferred with local-volume guidance instead of shipping a half-working S3 driver.
+
+## 2026-10-27 Job approval
+- Approval gates execution, not submission: jobs still enqueue (and budget/quota checks still run) but the worker SQL filters `approvedAt IS NOT NULL`, so no new status enum migration was needed and cancellation/retry semantics stay unchanged.
+- Backfilling existing jobs to `approvedAt=now()` is critical; otherwise a deploy would freeze the queue. The migration contains the backfill, not just column adds.
+- Per-user flag avoids a global approval switch for teams that only need it for external users; platform env covers stricter deployments.
+- Admin jobs filter uses `requiresApproval + approvedAt=null`; approve/reject only accept pending queued jobs and return 409 `JOB_NOT_APPROVABLE` otherwise, preventing races with worker claims.
+- UI shows "等待审批" on the user side and approval controls on the admin side; both reuse existing table patterns to keep the 16:9 layout intact.
+
+## 2026-10-27 Plans
+- Kept plans as a *quota* model, not a billing model: no payment/subscription state, but budget and concurrency resolution now have a clean hierarchy (user > plan > platform). This gives sales/support a real "package" object without pretending to process payments.
+- Plan deletion is guarded by member count; `SetNull` on user.planId would otherwise silently downgrade quotas, so the API blocks deletion until users are reassigned.
+- Admin UI reuses the existing panel/table/dialog components; user binding lives in the existing edit dialog to avoid a second navigation flow.
+- Budget precedence is centralized in `resolveBudgetUnits`, so future billing/plan fields only need to extend that function.
+
+## 2026-10-27 i18n batch 2
+- Reused the same dictionary/provider; no architectural changes. Server components (costs) call `getLocale()` + `translate`, client components use `useI18n()`.
+- Status/type labels moved to `job.status.*` / `job.type.*` so admin and user surfaces share one translation source; old exported helpers remain for compatibility but tests use default zh.
+- Tests were kept stable by using dictionary zh values identical to previous literals and preserving aria labels/roles (e.g., task list name, status filter). Where an aria label was accidentally changed to English, tests caught it immediately.
+- Admin alert messages still come from the server in Chinese; stable alert ids allow a later client-side mapping without changing the API.

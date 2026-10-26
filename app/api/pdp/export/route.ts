@@ -1,23 +1,23 @@
 import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { createUserWorkspace } from "@/src/platform/workspace";
+import { toErrorResponse } from "@/src/platform/http";
 import { parsePdpCanvasLayout } from "@/src/domain/pdp-canvas-layout";
 import type { SellingPoint } from "@/src/domain/types";
-import { createDemoAssetStore, exportDemoPdp } from "@/src/services/demo-api";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
-import { createDefaultProductRegistry } from "@/src/services/product-registry";
-import { createDefaultSystemSettingsStore } from "@/src/services/system-settings";
+import { exportDemoPdp } from "@/src/services/demo-api";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-
-  if (!body) {
-    return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
-  }
-
   try {
-    const imageStore = createDemoAssetStore();
+    const userId = await requireUserId();
+    const body = await request.json().catch(() => null);
+
+    if (!body) {
+      return NextResponse.json({ error: "Invalid JSON body." }, { status: 400 });
+    }
+
+    const workspace = createUserWorkspace(userId);
     const product = body.productId
-      ? (await createDefaultProductRegistry(imageStore).getProduct(String(body.productId))) ??
-        undefined
+      ? (await workspace.productRegistry.getProduct(String(body.productId))) ?? undefined
       : undefined;
 
     if (!product) {
@@ -27,8 +27,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const settings = await createDefaultSystemSettingsStore().read();
-
+    const settings = await workspace.settingsStore.read();
     const result = await exportDemoPdp({
       taskId: String(body.taskId ?? `task-pdp-export-${Date.now()}`),
       country: settings.country,
@@ -43,14 +42,13 @@ export async function POST(request: Request) {
       coverSubtitle: body.coverSubtitle ? String(body.coverSubtitle).slice(0, 320) : undefined,
       brandMessage: body.brandMessage ? String(body.brandMessage).slice(0, 420) : undefined,
       layout: parsePdpCanvasLayout(body.layout),
-      imageStore,
-      costLedger: createDefaultCostLedger()
+      imageStore: workspace.imageStore,
+      costLedger: workspace.costLedger
     });
 
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "PDP export failed";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return toErrorResponse(error, 400);
   }
 }
 

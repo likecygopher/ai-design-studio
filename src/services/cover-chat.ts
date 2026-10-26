@@ -3,6 +3,7 @@ import {
   fetchOpenAi,
   normalizeApiRoot
 } from "@/src/services/image-provider";
+import { ensureAiConfigHydrated } from "@/src/platform/ai-config";
 
 export const DEFAULT_COVER_CHAT_MODEL = "gpt-4o-mini";
 
@@ -218,6 +219,7 @@ export function resolveCoverNavigation(message: string): CoverNavigationTarget |
 export async function createCoverChatReply(
   input: CreateCoverChatReplyInput
 ): Promise<CoverChatReply> {
+  await ensureAiConfigHydrated();
   const message = input.message.trim();
   const navigation = resolveCoverNavigation(message);
   if (navigation) {

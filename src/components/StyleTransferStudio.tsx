@@ -8,6 +8,7 @@ import type { ProductWithProfile } from "@/src/domain/types";
 import { mapWithConcurrency } from "@/src/lib/concurrency";
 import { ImageModelSelector } from "./ImageModelSelector";
 import { StudioDialog } from "./StudioDialog";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import { StyleMaterialPicker, productLabel, styleProductImages } from "./StyleMaterialPicker";
 import styles from "./StyleTransferStudio.module.css";
 
@@ -19,6 +20,7 @@ const presetOrder = ["premium-universal", "nordic-home", "japanese-aesthetic", "
 const presets = [...STYLE_TRANSFER_PRESETS].sort((a, b) => presetOrder.indexOf(a.id) - presetOrder.indexOf(b.id));
 
 export function StyleTransferStudio() {
+  const { t } = useI18n();
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [loaded, setLoaded] = useState(false);
   const [loadError, setLoadError] = useState("");
@@ -45,14 +47,16 @@ export function StyleTransferStudio() {
     setLoaded(false); setLoadError("");
     fetch("/api/products", { signal: controller.signal }).then(async response => {
       const payload = await response.json();
-      if (!response.ok || !Array.isArray(payload.products)) throw new Error(payload.error ?? "无法读取产品素材");
+      if (!response.ok || !Array.isArray(payload.products)) throw new Error(payload.error ?? t("无法读取产品素材"));
       if (controller.signal.aborted) return;
       const list = payload.products as ProductWithProfile[];
       setProducts(list);
       const initial = list.find(product => styleProductImages(product).length) ?? list[0];
       setProductId(initial?.id ?? ""); setAssetId(styleProductImages(initial)[0]?.id ?? "");
       setLoaded(true);
-    }).catch(cause => { if (!controller.signal.aborted) { setLoadError(cause instanceof Error ? cause.message : "无法读取产品素材"); setLoaded(true); } });
+    }).catch(cause => { if (!controller.signal.aborted) { setLoadError(
+          cause instanceof Error ? cause.message : t("无法读取产品素材")
+        ); setLoaded(true); } });
     return () => controller.abort();
   }, [loadVersion]);
 
@@ -77,14 +81,15 @@ export function StyleTransferStudio() {
       await mapWithConcurrency(pending, 3, async job => {
         update(job.variantId, { state: "running" });
         try {
-          const response = await fetch("/api/style-transfer", {
-            method: "POST", headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ ...snapshot.params, variantId: job.variantId }), signal: controller.signal
-          });
-          const payload = await response.json();
-          if (!response.ok || payload.error || !payload.output?.url) throw new Error(payload.error ?? "生成失败，请重试");
+          const { postCapabilityJob } = await import("@/src/platform/client/job-client");
+          const payload = await postCapabilityJob<{ output?: Job["output"] }>(
+            "/api/style-transfer",
+            { ...snapshot.params, variantId: job.variantId },
+            controller.signal
+          );
+          if (!payload.output?.url) throw new Error(t("生成失败，请重试"));
           update(job.variantId, { state: "done", output: payload.output, error: undefined });
-        } catch (cause) { update(job.variantId, { state: "failed", error: cause instanceof Error ? cause.message : "生成失败，请重试" }); }
+        } catch (cause) { update(job.variantId, { state: "failed", error: cause instanceof Error ? cause.message : t("生成失败，请重试") }); }
       });
     } finally {
       active.current = false;
@@ -105,55 +110,63 @@ export function StyleTransferStudio() {
   const failed = run?.jobs.filter(job => job.state === "failed").length ?? 0;
   return (
     <div className={styles.studio}>
-      <header className={styles.heading}><h1>一键风格迁移</h1><p>选择产品素材与风格预设，生成一致的场景画面。</p></header>
-      {loadError ? <div role="alert" className={styles.error}>{loadError}<button className={styles.secondary} onClick={() => setLoadVersion(value => value + 1)} type="button">重新加载素材</button></div> : null}
+      <header className={styles.heading}><h1>{t("一键风格迁移")}</h1></header>
+      {loadError ? <div role="alert" className={styles.error}>{loadError}<button className={styles.secondary} onClick={() => setLoadVersion(value => value + 1)} type="button">{t("重新加载素材")}</button></div> : null}
       <div className={styles.inputRow}>
-        <section className={styles.panel} aria-label="选择素材">
-          <div className={styles.sectionHeading}><h2>选择素材</h2><div className={styles.actions}>
-            <button className={styles.secondary} disabled={busy || !loaded || !!loadError} onClick={() => setPicker("library")} type="button"><FolderOpen size={13} aria-hidden />从素材库选择</button>
-            <button className={styles.secondary} disabled={busy || !loaded || !!loadError} onClick={() => setPicker("upload")} type="button"><Upload size={13} aria-hidden />本地上传</button>
+        <section className={styles.panel} aria-label={t("选择素材")}>
+          <div className={styles.sectionHeading}><h2>{t("选择素材")}</h2><div className={styles.actions}>
+            <button className={styles.secondary} disabled={busy || !loaded || !!loadError} onClick={() => setPicker("library")} type="button"><FolderOpen size={13} aria-hidden />{t("从素材库选择")}</button>
+            <button className={styles.secondary} disabled={busy || !loaded || !!loadError} onClick={() => setPicker("upload")} type="button"><Upload size={13} aria-hidden />{t("本地上传")}</button>
           </div></div>
           <div className={styles.material}>
-            <div className={styles.productPreview}>{asset ? <img src={asset.url} alt="当前产品参考" /> : <ImageIcon size={26} aria-hidden />}</div>
-            <div className={styles.materialCopy}><div><strong>{loaded ? productLabel(selectedProduct) : "正在读取素材…"}</strong><button className={styles.textButton} disabled={busy || !loaded || !products.length} onClick={() => setPicker("library")} type="button">更换产品<ChevronRight size={12} aria-hidden /></button></div>
-              <span>{asset?.filename ?? "上传清晰产品图，或从素材库选择"}</span>
-              <small>{asset ? "产品参考图 · 保持产品结构与外观" : "支持任意产品品类，不限于冰箱或烤箱"}</small>
+            <div className={styles.productPreview}>{asset ? <img src={asset.url} alt={t("当前产品参考")} /> : <ImageIcon size={26} aria-hidden />}</div>
+            <div className={styles.materialCopy}><div><strong>{loaded ? productLabel(selectedProduct) : t("正在读取素材…")}</strong><button className={styles.textButton} disabled={busy || !loaded || !products.length} onClick={() => setPicker("library")} type="button">{t("更换产品")}<ChevronRight size={12} aria-hidden /></button></div>
+              <span>{asset?.filename ?? t("上传清晰产品图，或从素材库选择")}</span>
+              <small>{asset ? t("产品参考图 · 保持产品结构与外观") : t("支持任意产品品类，不限于冰箱或烤箱")}</small>
             </div>
           </div>
         </section>
-        <section className={styles.panel} aria-label="输出数量"><h2>输出数量</h2><p className={styles.hint}>选择本次生成的图片数量</p>
-          <div className={styles.quantity} role="radiogroup" aria-label="输出数量">{[1, 2, 3].map(value => <button type="button" role="radio" aria-checked={count === value} key={value} disabled={busy} onClick={() => setCount(value)}>{value} 张</button>)}</div>
-          <p className={styles.microHint}>同一风格，不同构图</p>
+        <section className={styles.panel} aria-label={t("输出数量")}><h2>{t("输出数量")}</h2>
+          <div className={styles.quantity} role="radiogroup" aria-label={t("输出数量")}>{[1, 2, 3].map(value => <button type="button" role="radio" aria-checked={count === value} key={value} disabled={busy} onClick={() => setCount(value)}>{t("{count} 张", { count: value })}</button>)}</div>
+          <p className={styles.microHint}>{t("同一风格，不同构图")}</p>
         </section>
       </div>
-      <section className={styles.panel} aria-label="风格预设">
-        <div className={styles.sectionHeading}><div className={styles.presetHeading}><strong className={styles.activeTab}>风格预设</strong><span className={styles.unavailable} title="本版仅提供已有预设，风格学习尚未开放">风格学习 · 暂未开放</span><span className={styles.current}>当前风格：{preset.label}</span></div>
-          <button type="button" className={styles.textButton} disabled={busy} onClick={() => setGallery(true)}>查看全部预设<ChevronRight size={12} aria-hidden /></button>
+      <section className={styles.panel} aria-label={t("风格预设")}>
+        <div className={styles.sectionHeading}><div className={styles.presetHeading}><strong className={styles.activeTab}>{t("风格预设")}</strong><span className={styles.unavailable} title={t("本版仅提供已有预设，风格学习尚未开放")}>{t("风格学习 · 暂未开放")}</span><span className={styles.current}>{t("当前风格：{name}", { name: preset.label })}</span></div>
+          <button type="button" className={styles.textButton} disabled={busy} onClick={() => setGallery(true)}>{t("查看全部预设")}<ChevronRight size={12} aria-hidden /></button>
         </div>
         <div className={styles.presetGrid}>{visiblePresets.map(item => <PresetCard key={item.id} preset={item} selected={styleId === item.id} disabled={busy} onSelect={() => choosePreset(item)} />)}</div>
       </section>
       <div className={styles.bottomRow}>
-        <section className={styles.panel} aria-label="场景描述">
-          <div className={styles.sectionHeading}><h2>场景描述<span className={styles.caption}>仅供确认</span></h2></div>
-          <p className={styles.sceneSummary}>将{selectedProduct ? productLabel(selectedProduct) : "所选产品"}置于{preset.label}场景。{preset.summary}保留主体的外观、结构与品牌细节。</p>
-          <details className={styles.advanced}><summary>高级描述</summary><label className={styles.field}>场景 Keywords<textarea disabled={busy} maxLength={600} value={keywords} onChange={event => setKeywords(event.target.value)} /></label><p className={styles.hint}>{keywords.length}/600 · 仅补充当前风格，不自动切换预设。</p></details>
+        <section className={styles.panel} aria-label={t("场景描述")}>
+          <div className={styles.sectionHeading}><h2>{t("场景描述")}<span className={styles.caption}>{t("仅供确认")}</span></h2></div>
+          <p className={styles.sceneSummary}>
+            {t("将{product}置于{scene}场景。{summary}保留主体的外观、结构与品牌细节。", {
+              product: selectedProduct ? productLabel(selectedProduct) : t("所选产品"),
+              scene: preset.label,
+              summary: preset.summary
+            })}
+          </p>
+          <details className={styles.advanced}><summary>{t("高级描述")}</summary><label className={styles.field}>{t("场景 Keywords")}<textarea disabled={busy} maxLength={600} value={keywords} onChange={event => setKeywords(event.target.value)} /></label><p className={styles.hint}>{keywords.length}/600</p></details>
         </section>
-        <section className={styles.panel + " " + styles.generatePanel} aria-label="生成设置">
+        <section className={styles.panel + " " + styles.generatePanel} aria-label={t("生成设置")}>
           <ImageModelSelector className={styles.field} value={imageModel} onChange={setImageModel} disabled={busy} />
-          <button type="button" aria-label="生成风格图" className={styles.primary} disabled={!asset || busy || !loaded || !!loadError} onClick={generate}>{busy ? <Loader2 className={styles.spinner} size={16} aria-hidden /> : <WandSparkles size={16} aria-hidden />}{busy ? "正在生成…" : "生成风格图"}</button>
+          <button type="button" aria-label={t("生成风格图")} className={styles.primary} disabled={!asset || busy || !loaded || !!loadError} onClick={generate}>{busy ? <Loader2 className={styles.spinner} size={16} aria-hidden /> : <WandSparkles size={16} aria-hidden />}{busy ? t("正在生成…") : t("生成风格图")}</button>
         </section>
       </div>
-      <p className={styles.footnote}>辅助生成说明：AI 将参考产品素材与风格预设生成场景，生成结果请在使用前核对产品细节。</p>
-      {run ? <section aria-label="风格迁移结果" className={styles.panel}>
-        <div className={styles.sectionHeading}><div><h2>生成结果</h2><p className={styles.hint}>{run.label}</p></div><span aria-live="polite">{completed}/{run.jobs.length} 已完成{busy ? " · 生成中" : ""}</span></div>
+      {run ? <section aria-label={t("风格迁移结果")} className={styles.panel}>
+        <div className={styles.sectionHeading}><div><h2>{t("生成结果")}</h2><p className={styles.hint}>{run.label}</p></div><span aria-live="polite">
+            {t("{done}/{total} 已完成", { done: completed, total: run.jobs.length })}
+            {busy ? t(" · 生成中") : ""}
+          </span></div>
         <div className={styles.resultGrid}>{run.jobs.map(job => <article className={styles.outputCard} key={job.variantId}>
-          <div className={styles.outputPreview}>{job.output ? <img src={job.output.url} alt={"风格迁移输出：" + job.label} /> : <div className={styles.outputPlaceholder}>{job.state === "failed" ? <RefreshCcw size={23} aria-hidden /> : <Loader2 size={23} className={styles.spinner} aria-hidden />}<span>{job.state === "failed" ? "此图片生成失败" : job.state === "running" ? "正在生成" : "等待生成"}</span></div>}</div>
-          <div className={styles.outputMeta}><strong>{job.label}</strong>{job.output ? <><small>{job.output.isFallback ? "示例回退结果 · 非实时生图" : job.output.model}</small><div className={styles.actions}><a href={job.output.url} download={"style-" + job.variantId + ".png"}><Download size={13} aria-hidden />下载图片</a><a href={job.output.url} target="_blank" rel="noreferrer"><ExternalLink size={13} aria-hidden />查看大图</a></div></> : job.error ? <p role="alert">{job.error}</p> : null}</div>
+          <div className={styles.outputPreview}>{job.output ? <img src={job.output.url} alt={t("风格迁移输出：") + job.label} /> : <div className={styles.outputPlaceholder}>{job.state === "failed" ? <RefreshCcw size={23} aria-hidden /> : <Loader2 size={23} className={styles.spinner} aria-hidden />}<span>{job.state === "failed" ? t("此图片生成失败") : job.state === "running" ? t("正在生成") : t("等待生成")}</span></div>}</div>
+          <div className={styles.outputMeta}><strong>{job.label}</strong>{job.output ? <><small>{job.output.isFallback ? t("示例回退结果 · 非实时生图") : job.output.model}</small><div className={styles.actions}><a href={job.output.url} download={"style-" + job.variantId + ".png"}><Download size={13} aria-hidden />{t("下载图片")}</a><a href={job.output.url} target="_blank" rel="noreferrer"><ExternalLink size={13} aria-hidden />{t("查看大图")}</a></div></> : job.error ? <p role="alert">{job.error}</p> : null}</div>
         </article>)}</div>
-        {!busy && failed ? <div className={styles.retry}><span>{failed} 张生成失败，成功图片已保留。</span><button className={styles.secondary} onClick={() => void execute(run, true)} type="button"><RefreshCcw size={13} aria-hidden />重试失败图片</button></div> : null}
+        {!busy && failed ? <div className={styles.retry}><span>{t("{count} 张生成失败，成功图片已保留。", { count: failed })}</span><button className={styles.secondary} onClick={() => void execute(run, true)} type="button"><RefreshCcw size={13} aria-hidden />{t("重试失败图片")}</button></div> : null}
       </section> : null}
       {picker ? <StyleMaterialPicker mode={picker} products={products} setProducts={setProducts} initialProductId={productId} onClose={() => setPicker(null)} onSelect={(nextProduct, nextAsset) => { setProductId(nextProduct); setAssetId(nextAsset); setPicker(null); }} /> : null}
-      {gallery ? <StudioDialog title="全部风格预设" onClose={() => setGallery(false)}><p className={styles.hint}>使用现有品牌参考素材，选择适合当前产品的场景方向。</p><div className={styles.gallery}>{presets.map(item => <PresetCard key={item.id} preset={item} selected={item.id === styleId} onSelect={() => choosePreset(item)} />)}</div></StudioDialog> : null}
+      {gallery ? <StudioDialog title={t("全部风格预设")} onClose={() => setGallery(false)}><div className={styles.gallery}>{presets.map(item => <PresetCard key={item.id} preset={item} selected={item.id === styleId} onSelect={() => choosePreset(item)} />)}</div></StudioDialog> : null}
     </div>
   );
 }

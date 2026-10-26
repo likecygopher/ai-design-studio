@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { Asset, AssetType, ProductWithProfile } from "@/src/domain/types";
+import { useI18n } from "@/src/i18n/I18nProvider";
 import {
   getMaterialCategoryForAssetType,
   materialCategories,
@@ -16,6 +17,7 @@ const sampleSubTypes: Array<{ value: AssetType; label: string }> = [
 ];
 
 export function AssetLibrary() {
+  const { locale, t } = useI18n();
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [productId, setProductId] = useState("");
   const [assets, setAssets] = useState<Asset[]>([]);
@@ -46,7 +48,7 @@ export function AssetLibrary() {
         }
       }
     } catch {
-      setError("加载素材失败,请刷新页面。");
+      setError(t("加载素材失败,请刷新页面。"));
     }
   }, []);
 
@@ -73,7 +75,7 @@ export function AssetLibrary() {
 
   async function createProduct() {
     if (!newProduct.name.trim() || !newProduct.category.trim()) {
-      setError("请填写产品名称与品类。");
+      setError(t("请填写产品名称与品类。"));
       return;
     }
     setError("");
@@ -85,22 +87,22 @@ export function AssetLibrary() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "创建产品失败");
+        throw new Error(payload.error ?? t("创建产品失败"));
       }
       setNewProduct({ name: "", category: "" });
-      setStatus(`已创建产品:${payload.product?.displayName ?? ""}`);
+      setStatus(t("已创建产品:{name}", { name: payload.product?.displayName ?? "" }));
       await refresh();
       if (payload.product?.id) {
         setProductId(payload.product.id);
       }
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "创建产品失败");
+      setError(cause instanceof Error ? cause.message : t("创建产品失败"));
     }
   }
 
   async function uploadFiles() {
     if (!files?.length || !productId) {
-      setError("请选择要上传的文件。");
+      setError(t("请选择要上传的文件。"));
       return;
     }
     setError("");
@@ -119,14 +121,14 @@ export function AssetLibrary() {
       const response = await fetch("/api/upload", { method: "POST", body: form });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "上传失败");
+        throw new Error(payload.error ?? t("上传失败"));
       }
-      setStatus(`已入库 ${payload.assets?.length ?? 0} 个素材`);
+      setStatus(t("已入库 {count} 个素材", { count: payload.assets?.length ?? 0 }));
       setFiles(null);
       await refresh();
     } catch (cause) {
       setStatus("");
-      setError(cause instanceof Error ? cause.message : "上传失败");
+      setError(cause instanceof Error ? cause.message : t("上传失败"));
     }
   }
 
@@ -141,13 +143,17 @@ export function AssetLibrary() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "删除产品失败");
+        throw new Error(payload.error ?? t("删除产品失败"));
       }
-      setStatus(`已删除产品及其上传素材:${product.displayName ?? product.id}`);
+      setStatus(
+        t("已删除产品及其上传素材:{name}", {
+          name: product.displayName ?? product.id
+        })
+      );
       setProductId("");
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "删除产品失败");
+      setError(cause instanceof Error ? cause.message : t("删除产品失败"));
     }
   }
 
@@ -159,11 +165,11 @@ export function AssetLibrary() {
       });
       const payload = await response.json();
       if (!response.ok || payload.error) {
-        throw new Error(payload.error ?? "删除失败");
+        throw new Error(payload.error ?? t("删除失败"));
       }
       await refresh();
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "删除失败");
+      setError(cause instanceof Error ? cause.message : t("删除失败"));
     }
   }
 
@@ -173,7 +179,7 @@ export function AssetLibrary() {
         <div style={{ display: "grid", gap: 12, gridTemplateColumns: "minmax(220px, 1fr) auto minmax(360px, 2fr)", alignItems: "end" }}>
           <div style={{ alignItems: "end", display: "grid", gap: 8, gridTemplateColumns: "1fr auto" }}>
             <label style={fieldStyle}>
-              当前产品
+              {t("当前产品")}
               <select value={productId} onChange={(event) => setProductId(event.target.value)}>
                 {products.map((item) => (
                   <option key={item.id} value={item.id}>
@@ -184,42 +190,41 @@ export function AssetLibrary() {
             </label>
             {product?.projectId === "project-user-workspace" ? (
               <button onClick={deleteProduct} style={dangerButtonStyle} type="button">
-                删除产品
+                {t("workflow.deleteProduct")}
               </button>
             ) : null}
           </div>
-          <span style={{ color: "var(--muted)" }}>或</span>
+          <span style={{ color: "var(--muted)" }}>{t("或")}</span>
           <div style={{ alignItems: "end", display: "grid", gap: 8, gridTemplateColumns: "1fr 1fr auto" }}>
             <label style={fieldStyle}>
-              新产品名称
+              {t("新产品名称")}
               <input
                 value={newProduct.name}
                 onChange={(event) => setNewProduct((c) => ({ ...c, name: event.target.value }))}
               />
             </label>
             <label style={fieldStyle}>
-              新产品品类
+              {t("新产品品类")}
               <input
-                placeholder="如 Laundry appliance"
+                placeholder={t("如 Laundry appliance")}
                 value={newProduct.category}
                 onChange={(event) => setNewProduct((c) => ({ ...c, category: event.target.value }))}
               />
             </label>
             <button onClick={createProduct} style={primaryButtonStyle} type="button">
-              创建产品
+              {t("workflow.createProduct")}
             </button>
           </div>
         </div>
-        <p style={{ color: "var(--muted)", margin: "10px 0 0" }}>
-          创建产品并上传素材,即可获得全部生成能力(不限品类)。
-        </p>
       </div>
 
       <div style={panelStyle}>
-        <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>上传素材到「{product?.displayName ?? "…"}」</h2>
+        <h2 style={{ fontSize: 16, margin: "0 0 10px" }}>
+          {t("上传素材到「{name}」", { name: product?.displayName ?? "…" })}
+        </h2>
         <div style={{ alignItems: "end", display: "grid", gap: 12, gridTemplateColumns: "auto auto 1fr auto" }}>
           <label style={fieldStyle}>
-            素材类别
+            {t("素材类别")}
             <select
               value={uploadCategory.key}
               onChange={(event) =>
@@ -231,21 +236,21 @@ export function AssetLibrary() {
             >
               {materialCategories.map((category) => (
                 <option key={category.key} value={category.key}>
-                  {category.label}
+                  {t(category.label)}
                 </option>
               ))}
             </select>
           </label>
           {uploadCategory.key === "sample" ? (
             <label style={fieldStyle}>
-              样例类型
+              {t("样例类型")}
               <select
                 value={sampleType}
                 onChange={(event) => setSampleType(event.target.value as AssetType)}
               >
                 {sampleSubTypes.map((item) => (
                   <option key={item.value} value={item.value}>
-                    {item.label}
+                    {t(item.label)}
                   </option>
                 ))}
               </select>
@@ -253,20 +258,31 @@ export function AssetLibrary() {
           ) : (
             <span />
           )}
-          <label style={fieldStyle}>
-            文件
-            <input
-              accept={uploadCategory.accept}
-              multiple
-              onChange={(event) => setFiles(event.target.files)}
-              type="file"
-            />
-          </label>
+          <div style={fieldStyle}>
+            <span>{t("文件")}</span>
+            <div style={fileFieldStyle}>
+              <label style={fileButtonStyle}>
+                {t("选择文件")}
+                <input
+                  accept={uploadCategory.accept}
+                  multiple
+                  onChange={(event) => setFiles(event.target.files)}
+                  type="file"
+                  style={{ display: "none" }}
+                />
+              </label>
+              <span
+                style={fileHintStyle}
+                title={files?.length ? selectedFileNames(files, locale) : undefined}
+              >
+                {files?.length ? selectedFileNames(files, locale) : t("未选择")}
+              </span>
+            </div>
+          </div>
           <button onClick={uploadFiles} style={primaryButtonStyle} type="button">
-            上传入库
+            {t("上传入库")}
           </button>
         </div>
-        <p style={{ color: "var(--muted)", margin: "10px 0 0" }}>{uploadCategory.description}</p>
         {status ? <p style={{ color: "#0049bb", margin: "8px 0 0" }}>{status}</p> : null}
         {error ? <p style={{ color: "#8f1f1f", margin: "8px 0 0" }}>{error}</p> : null}
       </div>
@@ -277,13 +293,16 @@ export function AssetLibrary() {
           return (
             <div data-testid={`material-group-${category.key}`} key={category.key} style={panelStyle}>
               <div style={{ alignItems: "baseline", display: "flex", gap: 8, justifyContent: "space-between" }}>
-                <h3 style={{ fontSize: 15, margin: 0 }}>{category.label}</h3>
-                <span style={{ color: "var(--muted)", fontSize: 12 }}>{categoryAssets.length} 项</span>
+                <h3 style={{ fontSize: 15, margin: 0 }}>{t(category.label)}</h3>
+                <span style={{ color: "var(--muted)", fontSize: 12 }}>
+                  {t("{count} 项", { count: categoryAssets.length })}
+                </span>
               </div>
-              <p style={{ color: "var(--muted)", fontSize: 12, margin: "6px 0 12px" }}>{category.description}</p>
               <div style={{ display: "grid", gap: 8 }}>
                 {categoryAssets.length === 0 ? (
-                  <span style={{ color: "var(--muted-soft)", fontSize: 13 }}>暂无素材,可在上方上传。</span>
+                  <span style={{ color: "var(--muted-soft)", fontSize: 13 }}>
+                    {t("暂无素材,可在上方上传。")}
+                  </span>
                 ) : null}
                 {categoryAssets.map((asset) => (
                   <div
@@ -308,12 +327,12 @@ export function AssetLibrary() {
                       <div style={{ color: "var(--muted-soft)", fontSize: 12 }}>{asset.type}</div>
                     </div>
                     <button
-                      aria-label={`删除 ${asset.filename}`}
+                      aria-label={t("删除 {filename}", { filename: asset.filename })}
                       onClick={() => removeAsset(asset.id)}
                       style={dangerButtonStyle}
                       type="button"
                     >
-                      删除
+                      {t("删除")}
                     </button>
                   </div>
                 ))}
@@ -334,6 +353,52 @@ const panelStyle = {
 } as const;
 
 const fieldStyle = { display: "grid", gap: 6 } as const;
+
+const fileFieldStyle = {
+  alignItems: "center",
+  display: "flex",
+  gap: 8,
+  minWidth: 0,
+  maxWidth: 360
+} as const;
+
+const fileButtonStyle = {
+  alignItems: "center",
+  background: "rgba(255,255,255,.56)",
+  border: "1px solid rgba(88,113,141,.22)",
+  borderRadius: 8,
+  boxShadow: "inset 0 1px 0 rgba(255,255,255,.6)",
+  color: "var(--text)",
+  cursor: "pointer",
+  display: "inline-flex",
+  flex: "0 0 auto",
+  fontWeight: 600,
+  height: 34,
+  justifyContent: "center",
+  padding: "0 12px"
+} as const;
+
+const fileHintStyle = {
+  color: "var(--muted)",
+  fontSize: 11,
+  minWidth: 0,
+  overflow: "hidden",
+  textOverflow: "ellipsis",
+  whiteSpace: "nowrap"
+} as const;
+
+function selectedFileNames(files: FileList | null, locale: "zh" | "en" = "zh"): string {
+  if (!files?.length) {
+    return "";
+  }
+  const names = Array.from(files).map((file) => file.name);
+  const separator = locale === "en" ? ", " : "、";
+  return names.length > 2
+    ? locale === "en"
+      ? `${names.slice(0, 2).join(separator)} and ${names.length - 2} more`
+      : `${names.slice(0, 2).join(separator)} 等 ${names.length} 个文件`
+    : names.join(separator);
+}
 
 const primaryButtonStyle = {
   background: "var(--accent-strong)",

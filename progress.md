@@ -393,3 +393,378 @@ POP 定向验证通过：src/domain/pop.test.ts、pop-template-sets.test.ts、�
 - Final production smoke passed: all three routes HTTP 200; POP oven Main B / Body C plus all fixed groups produced six PNGs with valid image MIME types and decoded dimensions (2000x1320, 2000x1200, 1600x1240, 880x1640, 2000x500, 2000x840). Zero API write attempts and no paid requests; no POP model selector. Production mobile and export screenshots inspected.
 - Production preview is running on 127.0.0.1:3101 (exec session 96523). Opening the POP browser tab in Codex was queued by the app. Delivery remains local and uncommitted; no deployment was attempted. Stage 26 complete, with real-generation quality/connectivity explicitly unvalidated and the four unrelated existing test failures retained.
 - Optional final screenshot/automation-browser cleanup returned an approval timeout; the single retry reported that the dedicated test browser was already closed. No application change was attempted by that retry. Earlier verified desktop/tablet/mobile evidence remains; the first production-white mobile capture shows the transient loading state. Final read-only HTTP check confirms the white page is available and the product endpoint returns both existing products. Preview service remains available.
+
+## 会话:2026-10-26——SDD 商业级多用户平台 v1
+
+### 需求
+用户要求以 SDD 模式优化为商业级多用户平台，并先 `git pull` 远程分支变更。
+
+### 已完成（83 测试文件 / 507 测试全绿；typecheck 0；build 0）
+- 合并 `origin/main`：解决 `app/api/localize/route.ts`、`app/pop/page.tsx`、`src/components/PopCanvasStudio.tsx` 三处语义冲突；修复合并引入的 6 个测试失败。
+- 产出 SDD 文档：宪法 + 规格（R1–R10）+ 技术设计 + 实施计划 + 任务清单（含完成记录）。
+- 数据层：Prisma 字段/表扩展 + 初始迁移；seed 生产安全加固。
+- 平台层：`config`(zod env)/`errors`/`logger`/`http`/`api`(handleApi)/`rate-limit`/`audit`/`worker-heartbeat`/`worker-runtime`。
+- 认证与权限：登录限流+审计、注册加固、`requireRole`、管理端 users/jobs/stats/health、`/api/health`、`/api/ready`。
+- 任务队列：幂等提交、指数退避重试、僵死回收、取消 API + 检查点、心跳、优雅退出、游标分页、进度节流。
+- 存储安全：魔数校验、单文件/批量/用户配额、`sizeBytes`、私有资产流、静态文件归属校验、清理 CLI。
+- 前端：注册页、`/jobs` 任务中心、角色徽标与任务中心导航、统一 `api-client`。
+- 工程：CI（Postgres service + 全门禁）、多阶段 Dockerfile、compose（postgres/migrate/web/worker）、`docs/runbook.md`、README 重写。
+- 修复远程基线遗留的 4 个失败测试（cover 页类名、icon-design 多参考图提示、PDP 品牌语、demo-api 文案）。
+
+### 端到端冒烟（next start :3211 + worker + PostgreSQL:5433）
+注册→登录→RBAC（403/200）→上传（PNG 成功/伪造 415/SVG 415）→私有文件（本人 200/未登录 401/他人 404）→任务幂等（202/200）→取消（200/409/跨用户 404）→设置隔离→登录限流（第 6 次 429）→安全头→审计落库→worker SIGTERM 后心跳清理且 ready 回到 503。
+
+### 遗留（P1）
+多副本限流（Redis）、对象存储、管理端 UI、静态 URL 收敛。
+
+## 会话:2026-10-26——管理员账户管理与认证页视觉统一
+
+### 需求
+用户提出：需要账户管理（管理员管理用户、创建用户、修改密码等）且登录页风格要与整体项目一致。
+
+### 已完成（89 测试文件 / 566 测试全绿；typecheck 0；build 0）
+- SDD 变更规格：`docs/sdd/changes/2026-10-26-admin-account-and-auth-ui.md`（R11/R12/R13 + 数据模型/接口/视觉规范/验收）。
+- 数据层：`User.disabled`、`User.authVersion` + 迁移 `20261026010000_account_admin`。
+- 会话安全：`getSessionUser()` 每请求回查 DB（禁用/版本/角色）；旧 JWT 立即失效；`/api/auth/expire` 清 Cookie；middleware 放行 `/login?expired=1`；按 `x-forwarded-host/proto` 生成外部跳转地址。
+- 接口：管理员创建/编辑（昵称/角色/禁用）/重置密码；自助改密；守卫（`CANNOT_MODIFY_SELF`、`LAST_ADMIN`）；审计四类动作；一次性临时密码仅返回一次。
+- 前端：`/admin/users`（搜索/角色筛选/分页/创建/编辑/禁用/改密/临时密码复制）、`/account`（自助改密）；导航新增账户设置与管理员「平台管理 → 用户管理」；AppShell 角色徽标保留。
+- 视觉：`/login`、`/register` 重构为壁纸 + 浅色玻璃 + 炭黑标题 + 浅金焦点 + 深色胶囊按钮；桌面双栏 / 移动单栏；修复移动端横向溢出、管理表格溢出、设置浮层遮挡、AppShell 全局按钮样式覆盖。
+- 修复：`app/api/assets/[id]/file` 的辅助函数导出导致 build 失败（拆到 `src/platform/storage/download-headers.ts`）；NextAuth v5 `secureCookie` Cookie 前缀。
+
+### 端到端冒烟（next start :3212 + PostgreSQL）
+创建用户（临时密码）→ 登录 → 禁用后 API 401/页面 307→expire→清 Cookie → 禁用状态登录无会话 → 重置密码旧会话 401、新密码可登录 → 自助改密后重新登录 → 普通用户访问管理页 307→studio-home → 管理员自禁用 400 → 外部 Host 跳转与 Cookie 清理正确。Playwright 截图核对登录/管理/账户页（桌面 + 390px），无 console/page error。
+
+### 遗留（P1）
+多副本限流（Redis）、对象存储、管理端任务/统计 UI、`getSessionUser` 每请求查询的短 TTL 缓存。
+
+## 会话:2026-10-26——界面文案产品化（去说明文字）
+
+### 需求
+用户反馈界面说明文字像原型草图，要求以产品视角移除说明性文案。
+
+### 已完成（90 测试文件 / 566 测试全绿；typecheck 0；build 0）
+- 制定文案原则并写入 SDD 宪法与变更记录（`docs/sdd/changes/2026-10-26-ui-copy-cleanup.md`）：界面只保留操作/状态/约束/错误/空态。
+- 认证页：删除营销段、功能子弹列表、页脚说明与重复眉标；仅保留品牌、标题、表单与必要的"创建账号/去登录"。
+- 平台页：用户管理/账户设置/任务中心去掉副标题；弹窗提示压缩为一行；`StudioDialog` 移除统一英文眉标。
+- 工作流页：assets/products/icon-design/phone/sku/pop/white-background/localize/style-transfer/costs/product-video 移除页面介绍段与装饰性英文标签；删除教程式提示与"辅助生成说明"免责声明；成本页更名"资源消耗"、表头中文化并补空态。
+- 素材库：移除分类描述与上传说明，保留格式约束、空态与状态。
+- 验证：Playwright 巡检 13 个页面无 console/page error；截图确认登录/管理/素材库/工作流版面不塌陷。
+
+### 保留（有意为之）
+表单约束（一行）、状态与计数、校验错误、危险操作后果、空态/加载态、默认收起的帮助入口。
+
+## 会话:2026-10-26——登录页视觉素材化 + 表单控件统一
+
+### 需求
+登录页左侧去掉文字说明，换成 SVG/已有素材；进入工作台后输入框样式突兀，需要统一优化。
+
+### 已完成（90 测试文件 / 566 测试全绿；typecheck 0；build 0）
+- 登录/注册：左栏文案全部移除，改为既有品牌场景图 `public/midea-ai/midea-finale-city.png`（cover 填充、轻暗角、装饰性 aria-hidden、<1024px 隐藏）；品牌锁定与表单保留在右侧卡片。
+- 控件根因治理：清理 AppShell 多轮叠加规则中 `select 42px/line-height 40px`、输入 `font-size 10px` 等不一致设置，在最终层统一为 34px 高、8px 圆角、半透明玻璃底、11.5px 字号、金色焦点环；文本域 68px 起可拉伸；禁用/占位/复选/单选一并规范化。
+- 原生文件控件治理：素材库改为自定义「选择文件」按钮 + 已选文件名摘要，全局补 `::file-selector-button` 兜底样式。
+- 验证：Playwright 截图核对登录（桌面/移动）、素材库、风格迁移、Icon Design、白底图、产品档案、SKU、管理页，控件尺寸与焦点态一致，无 console/page error。
+
+### 文档
+- 新增 `docs/sdd/changes/2026-10-26-auth-visual-and-form-controls.md`；task_plan 追加 Stage 30。
+
+## 会话:2026-10-27——可扩展 AI 供应商管理 + 管理端概览/审计
+
+### 需求
+用户指出 AI 引擎页把 OpenAI/火山方舟写死了，应该是表格 + 新增弹窗，并支持接入其他厂商；同时授权补齐管理端缺口。
+
+### 已完成（100 测试文件 / 615 测试全绿；typecheck 0；build 0）
+- 数据层：新增 `AiProvider` 表与迁移（name/channel/baseUrl/proxy/apiKeyCipher/models/enabled/priority/lastTest），取代写死的双服务商。
+- 配置层：`ai-config.ts` 重写为供应商注册表——CRUD、同渠道首行生效（priority）、AES-256-GCM 密钥落库、掩码视图、env 投影、Web 懒加载 + Worker 60s 刷新。
+- 接口：`/api/admin/ai/providers`（GET/POST）、`/{id}`（PATCH/DELETE）、`/{id}/test`、`/{id}/default`；审计 create/update/delete/activate/test。
+- 前端：`/admin/ai` 表格 + 新增/编辑弹窗（OpenAI/DeepSeek/Moonshot/通义/OpenRouter/火山方舟/自定义预设），行内编辑/测试/设为生效/删除图标操作，生效徽标与最近测试结果。
+- 管理端补齐：`/admin` 系统概览（用户/任务/队列/存储/Worker + 快捷入口）、`/admin/audit` 审计日志（操作类型/关键词筛选、分页、请求编号）。
+- 文档：新增 `docs/sdd/changes/2026-10-27-multi-provider-ai-and-audit.md`；README/runbook/.env.example/宪法同步。
+
+### 端到端冒烟
+创建两个 OpenAI 兼容供应商（假 Key + 本机不可达 Base URL）→ 数据库密文 `enc:v1:`、列表掩码 → 测试返回 NETWORK_ERROR 并落库「最近测试」→ 设为生效切换成功 → 编辑改名/清除 Key/停用 → 审计动作齐全且无明文 → 页面 200。测试数据已清理。
+
+### 遗留（P1）
+多 Web 副本的配置同步（当前 60s 轮询）、供应商级流量/成本统计、按任务类型绑定不同渠道。
+
+## 会话:2026-10-27——任务运维 + 月度预算 + CSP
+
+### 已完成（105 测试文件 / 642 测试；tsc 0；build 0）
+- 任务运维：用户重试失败/取消任务；管理端 `/admin/jobs`（筛选/重试/取消/失败原因）；接口 `POST /api/jobs/{id}/retry`、`POST /api/admin/jobs/{id}/retry|cancel`；审计 `job.retry`/`admin.job.cancel`。
+- 月度预算：`User.monthlyBudgetUnits`（null=默认、0=不限）+ `DEFAULT_MONTHLY_BUDGET_UNITS`；入队前校验，超限 429 `COST_BUDGET_EXCEEDED` 并审计；`/admin/users` 显示本月用量并可编辑预算；`/costs` 改为数据库台账 + 预算进度；`/api/costs` 返回 budget。
+- 安全：CSP（frame-ancestors/base-uri/form-action/object-src 等）。
+- 端到端：管理端重试 → 201 新任务；取消 → 200；预算 1 单位 + 已用 1 → 入队 429；CSP 头存在；页面 200 且无 console error。
+
+### 下一步（goal 继续）
+供应商故障切换与用量统计 → E2E CI → 国际化 → 对象存储/Redis 限流 → 可观测性 → API Token/OpenAPI → 数据治理 → 多租户/审批/模板市场/计费。
+
+## 会话:2026-10-27——供应商故障切换与调用统计
+
+### 已完成（106 测试文件 / 649 测试；tsc 0；build 0）
+- `AiProvider` 增加 successCount/failureCount/consecutiveFailures/lastFailureAt/lastFailureReason（迁移 20261027050000）。
+- Worker 按任务渠道归因统计；同渠道连续 2 次失败自动将备用供应商提升为生效项，写 `admin.ai_config.failover` 审计；Worker 下一次重试即用备用。
+- Web 进程配置 60s 刷新；管理端表格展示「调用 X 成功 · Y 失败 · 连续失败 N」及降级徽标。
+- 端到端：两次失败 → A consecutive=2、B priority=99/active、审计 1 条；页面无 console error。
+
+### 下一步（goal 继续）
+E2E 进 CI + 依赖审计 → 2FA/会话管理 → 国际化 → 对象存储/Redis → 可观测性 → API Token/OpenAPI → 数据治理 → 多租户。
+
+## 会话:2026-10-27——依赖加固 + E2E 进 CI
+
+### 已完成（106 测试文件 / 649 测试；tsc 0；build 0；生产依赖漏洞 0）
+- 升级：Next 15.5.28（修 3 个 critical RCE）、undici 6.29.1、sharp 0.35.5、Zod 4.6.7（完成 v4 参数迁移）。
+- pnpm 11 overrides（`pnpm-workspace.yaml`）：postcss/nanoid/browserslist/source-map-js/deepmerge-ts/effect/baseline-browser-mapping/sharp 全部到修复版本；`pnpm audit --prod --audit-level=high` → 0。
+- E2E：Playwright 1.64.1 + auth setup/storageState；覆盖登录、工作台、管理端 5 页、任务/成本页、匿名重定向；本地 5/5 通过。
+- CI：新增 audit 门禁、seed、Playwright Chromium 安装与 `pnpm e2e`。
+
+### 下一步（goal 继续）
+2FA / 会话管理 → 国际化 → 对象存储/Redis → 可观测性 → API Token/OpenAPI → 数据治理 → 多租户。
+
+## 会话:2026-10-27——TOTP 两步验证 + 登录设备管理
+
+### 已完成（110 测试文件 / 675 测试；tsc 0；build 0）
+- 免依赖 TOTP（RFC 6238）+ 一次性恢复码；2FA 设置/启用/停用/重生成接口。
+- 登录第二步校验：启用后仅密码登录失败，验证码/恢复码通过才建会话。
+- `AuthSession` 设备会话：登录写入、JWT 携带 sessionId、服务端校验与 lastSeen 节流、设备列表/吊销、当前设备吊销即登出。
+- 改密与管理员重置密码吊销全部设备；`pnpm cleanup` 清理过期会话。
+- `/account` 新增 2FA 与登录设备卡片；登录页新增可选验证码字段；审计动作补充。
+- 端到端：开启 → 无码登录失败 → TOTP 登录成功 → 会话列表 2 条 → 停用；账户页 Playwright 无 console error。
+
+### 下一步（goal 继续）
+国际化中英切换 → 对象存储/Redis 限流 → 可观测性 → API Token/OpenAPI → 数据治理 → 多租户/审批/模板市场/计费。
+
+## 会话:2026-10-27——中英双语（第一批）
+
+### 已完成（113 测试文件 / 682 测试；tsc 0；build 0；E2E 6/6）
+- 无依赖 i18n：`src/i18n/core.ts`（zh/en 字典、插值、回退）、`server.getLocale`、客户端 `I18nProvider`、`LocaleSwitcher`（cookie + router.refresh）。
+- 根布局按 cookie 设置 `<html lang>`；外壳/主导航/登录注册/账户设置全部双语。
+- 测试：i18n 核心/服务端/切换器单测；E2E 新增登录页英文切换；既有中文测试不变。
+- 未覆盖：管理端五页、任务中心/成本页、13 个工作流页面（下一轮继续）。
+
+### 下一步（goal 继续）
+管理端 + 用户侧 + 工作流页面英文化 → 对象存储/Redis 限流 → 可观测性 → API Token/OpenAPI → 数据治理 → 多租户等。
+
+## 会话:2026-10-27——可观测性（metrics + 告警）
+
+### 已完成
+- 无依赖 Prometheus 指标注册表：HTTP 请求/时延、限流、任务入队/成功/失败/时延、预算拦截、供应商调用结果、进程内存/运行时长；动态路由归一 `:id`。
+- `/api/metrics`：内网抓取支持 METRICS_TOKEN Bearer 或管理员会话；匿名 401。
+- `/api/admin/health` 增加 database/workers/queue-depth/failure-rate/provider 告警与 `ok/degraded/unhealthy`；`/admin` 概览展示告警条。
+- E2E：管理员抓取 200、匿名 401。
+
+### 下一步（goal 继续）
+API Token/Webhook + OpenAPI → 数据治理（导出/注销/审计导出）→ Redis/对象存储 → i18n 剩余页面 → 多租户等。
+
+## 会话:2026-10-27——API Token + Webhook + OpenAPI
+
+### 已完成（118 测试文件 / 705 测试；tsc 0；build 0）
+- `ApiToken`：创建（一次性明文、SHA-256 存储）、列表、吊销、过期；`Authorization: Bearer` 接入 `handleApi`；中间件放行 Bearer 交由 Node 校验；管理员令牌继承角色。
+- Webhook：端点 CRUD（secret 加密、仅 https、SSRF 基础防护）、Worker 任务终态 HMAC 投递、`WebhookDelivery` 记录。
+- OpenAPI 3.1 文档 `/api/openapi`（16 路径、session + Bearer 两种安全方案）。
+- `/account` 新增 API 令牌卡片（创建/一次性展示/复制/吊销）。
+- 冒烟：仅 Bearer 调 `/api/jobs`、`/api/admin/users` 均 200；非法令牌 401；Webhook 创建/列表/删除；OpenAPI 200。
+
+### 下一步（goal 继续）
+数据治理（导出/注销/审计导出）→ Redis/对象存储 → i18n 剩余页面 → 多租户/审批/模板市场/计费。
+
+## 会话:2026-10-27——数据治理（导出/注销/审计导出）
+
+### 已完成（121 测试文件 / 716 测试；tsc 0；build 0）
+- 本人数据导出：`GET /api/account/export`（JSON 附件，排除密码/令牌哈希/Webhook secret/storageKey，限流 + 审计）。
+- 账号注销：`DELETE /api/account`（密码校验、最后管理员守卫、级联删除、资产文件尽力清理、审计保留）。
+- 审计导出：`GET /api/admin/audit/export`（CSV + BOM + 转义 + 时间/动作筛选，限制 5000 行，审计）；管理端「导出 CSV」。
+- UI：账户页「数据与隐私」卡片（导出/注销确认）；注销后强制退出。
+- 冒烟：导出附件头与无密钥；CSV 头正确；临时用户创建→登录→导出→注销→再次登录失败。
+
+### 下一步（goal 继续）
+Redis 限流/对象存储 → i18n 剩余页面 → 多租户/审批/模板市场/计费。
+
+## 会话:2026-10-27——Redis 分布式限流
+
+### 已完成（121 测试文件 / 720 测试；tsc 0；build 0）
+- 新增 AsyncRateLimiter/RedisRateLimiter（Lua 原子计数），`handleApi` 与登录 authorize 改为异步；`REDIS_URL` 配置；Redis 故障回退进程内并记录日志；ioredis 动态导入避免 Edge 打包。
+- 单测覆盖计数/超限/回退/reset；本地 Redis 冒烟：连续 5 次导出，第 5 次 429 且 `Retry-After: 900`，Redis 键 `studio:rl:*` 可见。
+- 对象存储（S3/OSS）未实现，已在 runbook/change 中标注为后续项（当前本地卷；多副本需共享卷）。
+
+### 下一步（goal 继续）
+i18n 剩余页面 → 多租户/审批/模板/计费（按可行范围）→ 对象存储 driver。
+
+## 会话:2026-10-27——任务审批流（第 10 项切片）
+
+### 已完成（123 测试文件 / 729 测试；tsc 0；build 0）
+- 平台级 `JOB_REQUIRE_APPROVAL` + 用户级 `requiresJobApproval`；入队写入审批字段；Worker 领取 SQL 增加 `approvedAt IS NOT NULL`。
+- 管理端审批：`/admin/jobs` 审批筛选、待审批徽标、批准/驳回；接口 approve/reject + 审计；用户任务中心「等待审批」徽标；用户编辑开关。
+- 冒烟：开启用户审批 → 任务待审批 → Worker 领取为空 → 管理员批准 → 可领取；驳回 → cancelled + 原因。
+
+### 下一步（goal 继续）
+i18n 剩余页面（管理端/任务/成本/工作流）、对象存储 driver、组织多租户/模板市场/计费。
+
+## 会话:2026-10-27——最终验证与交付收敛
+
+### 最终门禁
+- tsc 0；vitest 123 文件 / 729 测试；next build 0；生产依赖审计 0；Playwright 7/7。
+- 临时数据/会话已清理，服务已停止；改动未提交 git。
+
+### 交付范围
+- 已完成：任务运维+审批、预算、供应商故障切换、CSP/2FA/会话/依赖/E2E、Redis 限流、指标告警、API Token/Webhook/OpenAPI、数据治理；i18n 外壳/登录/账户。
+- 剩余：管理端+工作流英文化、对象存储、组织多租户、模板市场、计费订阅、Webhook UI/scope 等（详见 backlog 文档）。
+
+## 会话:2026-10-27——套餐（Plan）配额
+
+### 已完成（125 测试文件 / 738 测试；tsc 0；build 0）
+- `Plan` 模型（月度预算/并发上限）+ `User.planId`；配额优先级：用户 > 套餐 > 平台默认。
+- `/admin/plans` 列表/新增/编辑/删除（有成员删除 409）；`/admin/users` 套餐绑定；审计 `admin.plan_*`。
+- 冒烟：创建套餐→绑定用户→用户显示套餐→删除被拒 409→解绑→删除成功；E2E 管理端包含套餐页。
+- 剩余：组织多租户、模板市场、支付/订阅账单；i18n 管理端/工作流、对象存储。
+
+### 下一步（goal 超出轮次上限）
+- 以 `docs/sdd/backlog/2026-10-27-remaining.md` 为续作入口。
+
+## 会话:2026-10-27——i18n 第二批（管理端运维页 + 任务/成本）
+
+### 已完成（125 测试文件 / 738 测试；tsc 0；build 0；E2E 8/8）
+- `/admin` 概览、`/admin/jobs`、`/admin/plans`、任务中心、`/costs` 全部双语；状态/类型标签统一字典。
+- E2E 新增：cookie 切换英文后管理端概览/任务/套餐标题与表头为英文；中文既有测试不变。
+- 剩余：admin/users、admin/ai、admin/audit、13 个工作流页面、服务端错误码英文。
+
+### 下一步
+继续上述 i18n 收尾 → 对象存储 driver → 组织多租户/模板市场/支付订阅。
+
+## 会话:2026-10-27——i18n 审计日志页
+
+- `/admin/audit` 双语（含操作类型标签 enByZh 映射）；E2E 英文管理端追加审计页。
+- 门禁：tsc 0；vitest 125/738；build 0；E2E 8/8。
+- 下一步：admin/users、admin/ai、13 个工作流页面、服务端错误码英文。
+
+## 会话:2026-10-27——i18n AI 引擎页
+
+- `/admin/ai` 双语（表格/表单/测试结果/密钥占位/确认文案）；E2E 英文管理端追加 AI Engines。
+- 门禁：tsc 0；vitest 125/738；build 0；E2E 8/8。
+- 下一步：admin/users、13 个工作流页面、服务端错误码英文。
+
+## 会话:2026-10-27——i18n 用户管理页（管理端完成）
+
+- `/admin/users` 双语（表格/筛选/新建/编辑/重置/一次性密码/套餐/审批/错误）；E2E 英文管理端追加 Users。
+- 管理端五页 + 任务中心 + 成本页全部双语。
+- 门禁：tsc 0；vitest 125/738；build 0；E2E 8/8。
+- 下一步：13 个工作流页面、服务端错误码英文；之后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——API 错误码英文映射
+
+- 新增错误码英文映射与 `formatApiError` 本地化（保留中文默认）；注册校验文案双语。
+- 门禁：tsc 0；vitest 126/742；build 0；E2E 8/8。
+- 下一步：13 个工作流页面英文化；之后对象存储/多租户/市场/计费/Webhook UI。
+
+## 会话:2026-10-27——Webhook UI + Token scope
+
+- Token scope：read / read+write；写请求无 write → 403；账户页权限下拉；冒烟验证。
+- Webhook 管理 UI：创建/事件/一次性 secret/列表/删除。
+- 门禁：tsc 0；vitest 126/745；build 0；E2E 8/8。
+- 下一步：工作流页面 i18n、对象存储、组织多租户、模板市场、支付订阅。
+
+## 会话:2026-10-27——共享工作流组件 i18n
+
+- 能力执行器、产品档案、资产库双语；素材类别/文件名分隔符随语言切换；E2E 追加英文资产库。
+- 门禁：tsc 0；vitest 126/745；build 0；E2E 8/8。
+- 下一步：13 个 Studio 主体文案；对象存储、组织多租户、模板市场、支付订阅。
+
+## 会话:2026-10-27——告警外发
+
+- 统一健康快照 + Slack/Webhook 告警（去重/冷却/恢复通知/指标）；Worker 60s 巡检；健康接口复用。
+- 门禁：tsc 0；vitest 127/750；build 0；E2E 8/8。
+- 下一步：13 个 Studio i18n、对象存储、组织多租户、模板市场、支付订阅。
+
+## 会话:2026-10-27——首页/裁剪/聊天 i18n
+
+- 首页工作台、图片裁剪对话框、封面聊天提示双语；E2E 添加英文首页检查。
+- 门禁：tsc 0；vitest 127/750；build 0；E2E 8/8。
+- 剩余：各创作 Studio 主体文案、对象存储、组织多租户、模板市场、支付订阅。
+
+## 会话:2026-10-27——手机图标准化 Studio i18n
+
+- 手机图标准化页全量双语；E2E 添加英文页面检查。
+- 门禁：tsc 0；vitest 127/750；build 0；E2E 8/8。
+
+## 会话终点（2026-10-27，第 20 轮）
+
+- 风格迁移 Studio 双语；E2E 8/8。
+- 最终门禁：tsc 0；vitest 127/750；next build 0。
+- 交接文档：docs/sdd/backlog/2026-10-27-final-handoff.md。
+- 目标未全部完成：对象存储、组织多租户、模板市场、支付订阅、剩余 Studio i18n。
+
+## 会话:2026-10-27——设置/调校/图标/视频/素材选择 i18n
+
+- 大范围工作流双语；门禁全绿（127/750，E2E 8/8）。
+- 下一步：WhiteBackground、SkuReplacement、Localize、PopCanvas、Pdp；随后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——白底图 Studio i18n
+- 白底图全量双语；门禁 127/750，E2E 8/8。
+- 下一步：SkuReplacement、Localize、PopCanvas、Pdp；随后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——PDP 画布 i18n
+- PDP 动态画布全量双语；门禁 127/750。
+- 下一步：SkuReplacement、Localize、PopCanvas；之后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——SKU 替换 Studio i18n
+- SKU 局部替换全量双语（含蒙版编辑器）；门禁 127/750，E2E 8/8。
+- 下一步：Localize、PopCanvas；随后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——Localize Studio i18n
+- 多语言环境自适应全量双语；门禁 127/750。
+- 下一步：PopCanvas；之后对象存储/多租户/市场/计费。
+
+## 会话:2026-10-27——POP Canvas i18n（工作流收尾）
+- POP 画布全量双语；主要工作流页面 i18n 基本完成（127/750，E2E 8/8）。
+- 下一步转入对象存储 S3/OSS driver。
+
+## 会话:2026-10-27——对象存储 S3/OSS driver
+- local/S3 存储抽象、配置校验、用户资产读写/删除接入；S3 模式授权代理 URL。
+- 门禁：tsc 0；vitest 128/754；build 0；audit 0；E2E 8/8。
+- 下一步：组织多租户、模板市场、支付/订阅账单、Webhook/安全收尾。
+
+## 会话:2026-10-27——Webhook 投递重试
+- 投递记录/指数退避自动重试/手动重试/账户页 UI；门禁 129/758。
+- 下一步：模板市场、支付订阅、组织多租户、安全加固。
+
+## 会话:2026-10-27——模板市场
+- 发布/审核/克隆模型与 API、市场页、管理端审核页、导航与中英双语。
+- 门禁：tsc 0；vitest 130/762；build 0；E2E 8/8。
+- 下一步：支付/订阅账单、组织多租户、安全加固。
+
+## 会话:2026-10-27——撤销订阅/账单
+- 用户明确不需要「订阅与账单（无支付网关）」；已移除 Subscription/Invoice 模型、API、账户卡片、管理页、导航、审计与 i18n。
+- 保留套餐（Plan）配额。
+
+## 会话:2026-10-27——组织多租户阶段 1
+- 组织/成员/角色模型、个人组织回填、组织切换与管理页；门禁 131/767，E2E 8/8。
+- 待办：阶段 2 数据隔离（active org 解析 + 产品/素材/任务查询按 organizationId）。
+
+## 会话:2026-10-27——组织多租户阶段 2
+- active org 缓存 + 产品/素材/任务组织共享；Worker 使用任务组织读取工作区。
+- 门禁：tsc 0；vitest 131/767；build 0；E2E 8/8。
+- 剩余：成本/导出组织化、组织删除、可观测性/安全加固、最终验收。
+
+## 会话:2026-10-27——企业 SSO（OIDC）
+- 单 IdP OIDC 登录、邮箱关联/自动开通、域白名单、默认组织、设备会话与审计；登录页入口与文档。
+- 门禁：tsc 0；vitest 132/774；build 0；E2E 8/8。
+- 边界：平台级单 IdP；SAML/SCIM/多组织 IdP 未实现。
+
+## 会话终点:2026-10-27——CSP nonce + 组织归档/删除 + 最终验收
+- CSP nonce 生效（script strict-dynamic）；组织归档/删除与回退；E2E 9 passed。
+- 最终门禁：tsc 0；vitest 133/781；build 0；audit 0。
+- 交接：docs/sdd/backlog/2026-10-27-final-handoff.md。
+
+## 会话:2026-10-27——每组织 IdP + SAML + SCIM
+- 组织级 OIDC/SAML 配置与登录、一次性票据桥接、SCIM 用户/组同步与组角色映射；管理页与端点。
+- 冒烟：SCIM 令牌创建用户/组，成员角色映射为 admin；门禁 135/790、E2E 9、audit 0。
+
+## 会话:2026-10-27——工作台双布局
+- 新增舒适/紧凑布局切换与持久化；紧凑模式占满视口、压缩侧栏/留白、首页自适应填充；执行端截图核对。
+- 门禁：tsc 0；vitest 135/790；build 0；E2E 10 passed。
+
+## 会话:2026-10-27——按钮可读性与浮层遮挡修复
+- 修复深色按钮 hover 浅底白字；主按钮统一品牌蓝；右上角浮层与内容区避让。
+- 门禁：tsc 0；vitest 135/790；build 0；E2E 11 passed。
+
+## 会话:2026-10-27——提交类按钮深色渐变
+- 仅提交/确认类主按钮使用 #37444a→#202a30 渐变，hover 变亮且白字；Tab/生成/布局切换恢复各自样式。
+- 门禁：tsc 0；vitest 135/790；build 0；E2E 11 passed。

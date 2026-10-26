@@ -23,9 +23,14 @@ describe("Icon Design VI rules", () => {
       variantId: "midea-blue"
     });
 
+    // Reference order contract: image 1 is the (single) semantic source symbol,
+    // images 2 and later are the dynamically supplied brand guideline references.
+    // The slot count is not fixed, so the prompt must not hard-code "image 3".
     expect(prompt).toContain("image 1");
-    expect(prompt).toContain("image 2");
-    expect(prompt).toContain("image 3");
+    expect(prompt).toContain("Images 2 and later");
+    expect(prompt).toContain("authoritative brand guideline references");
+    expect(prompt).toContain("semantic source symbol");
+    expect(prompt).not.toContain("image 3");
     expect(prompt).toContain("Twin Crispers");
     expect(prompt).toContain("#0092D8");
     expect(prompt).toContain("exactly one standalone finished artwork");

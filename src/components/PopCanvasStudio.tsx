@@ -46,6 +46,7 @@ import {
 } from "./PopTemplateCanvas";
 import { ImageCropDialog } from "./ImageCropDialog";
 import styles from "./PopCanvasStudio.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type LocalMaterial = {
   templateId: string;
@@ -82,6 +83,7 @@ const MAX_CANVAS_ZOOM = 2;
 const CANVAS_ZOOM_STEP = 0.25;
 
 export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }) {
+  const { t } = useI18n();
   const previewNamespace = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const initialProduct = products[0];
   const initialProductType = initialProduct
@@ -334,7 +336,7 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
       const response = await fetch("/api/upload", { method: "POST", body: form });
       const payload = await response.json();
       if (!response.ok || payload.error || !payload.assets?.[0]) {
-        throw new Error(payload.error ?? "图片上传失败");
+        throw new Error(payload.error ?? t("图片上传失败"));
       }
 
       const uploaded = payload.assets[0] as Asset;
@@ -342,7 +344,7 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
       assignImage(pending.target.templateId, pending.target.slotId, uploaded.id);
       setStatus("idle");
     } catch (cause) {
-      setError(cause instanceof Error ? cause.message : "图片上传失败");
+      setError(cause instanceof Error ? cause.message : t("图片上传失败"));
       setStatus("failed");
     } finally {
       setPendingCrop(null);
@@ -367,15 +369,15 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
         const template = getPopTemplate(templateId);
         const draft = drafts[templateId] ?? buildDefaultDraft(template);
         const imageDataUris: Record<string, string> = {};
-        setStage(`正在生成 ${index + 1}/${templateSet.groups.length} · ${group.name}`);
+        setStage(t("正在生成 {index}/{total} · {name}", { index: index + 1, total: templateSet.groups.length, name: group.name }));
         for (const [slotId, assetId] of Object.entries(draft.imageAssetIds)) {
           if (!assetId) continue;
           let dataUri = dataUriCache[assetId];
           if (!dataUri) {
             const asset = assets.find((item) => item.id === assetId);
-            if (!asset) throw new Error("所选图片已不可用，请重新选择图片。");
+            if (!asset) throw new Error(t("所选图片已不可用，请重新选择图片。"));
             const response = await fetch(asset.url);
-            if (!response.ok) throw new Error(`无法读取图片 ${asset.filename}，请重新选择图片。`);
+            if (!response.ok) throw new Error(t("无法读取图片 {name}，请重新选择图片。", { name: asset.filename }));
             dataUri = await blobToDataUri(await response.blob());
           }
           imageDataUris[slotId] = dataUri;
@@ -393,12 +395,12 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
       }
       exportUrlsRef.current = createdUrls;
       setMaterials(generated);
-      setStage(`已生成 ${generated.length} 份物料，可逐项下载 PNG 或 SVG。`);
+      setStage(t("已生成 {count} 份物料，可逐项下载 PNG 或 SVG。", { count: generated.length }));
       setStatus("done");
     } catch (cause) {
       createdUrls.forEach((url) => URL.revokeObjectURL(url));
       if (revision !== generationRevisionRef.current) return;
-      setError(cause instanceof Error ? cause.message : "本地物料导出失败，请重试。");
+      setError(cause instanceof Error ? cause.message : t("本地物料导出失败，请重试。"));
       setStage("");
       setStatus("failed");
     }
@@ -419,25 +421,25 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
   }
 
   const ProductTypeIcon = productType === "oven" ? CookingPot : Refrigerator;
-  const productTypeLabel = productType === "oven" ? "烤箱模板" : "冰箱模板";
+  const productTypeLabel = productType === "oven" ? t("烤箱模板") : t("冰箱模板");
   const statusLabel =
     status === "generating"
-      ? "生成中"
+      ? t("生成中")
       : status === "uploading"
-        ? "上传中"
+        ? t("上传中")
         : status === "done"
-          ? "已生成"
+          ? t("已生成")
           : status === "failed"
-            ? "失败"
-            : "就绪";
+            ? t("失败")
+            : t("就绪");
 
   return (
     <section className={styles.studio}>
       <div className={styles.toolbar}>
         <label className={styles.field}>
-          产品
+          {t("产品")}
           <select
-            aria-label="产品"
+            aria-label={t("产品")}
             onChange={(event) => switchProduct(event.target.value)}
             value={product.id}
           >
@@ -450,25 +452,25 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
         </label>
 
         <div className={styles.field}>
-          产品类型模板
+          {t("产品类型模板")}
           <div className={styles.productType} data-testid="pop-product-type">
             <ProductTypeIcon aria-hidden="true" size={18} strokeWidth={1.8} />
             {productTypeLabel}
           </div>
         </div>
         <div className={styles.setActions}>
-          <span>本地模板模式 · 拖拽贴装预览</span>
+          <span>{t("本地模板模式 · 拖拽贴装预览")}</span>
           <button className={styles.generateButton} disabled={status === "generating" || status === "uploading"} onClick={generateMaterialSet} type="button">
             <Play aria-hidden="true" size={15} />
-            {status === "generating" ? "正在生成整套物料" : "生成整套 POP 物料"}
+            {status === "generating" ? t("正在生成整套物料") : t("生成整套 POP 物料")}
           </button>
         </div>
       </div>
 
       <div className={styles.materialOverview}>
         <div className={styles.overviewHeader}>
-          <h3>选择 POP 模板 <span>{templateSet.name}</span></h3>
-          <p><span className={styles.fixedDot} /> 固定模板 <span className={styles.optionalDot} /> 可选方案 <span aria-live="polite">· {statusLabel}</span></p>
+          <h3>{t("选择 POP 模板")} <span>{templateSet.name}</span></h3>
+          <p><span className={styles.fixedDot} /> {t("固定模板")} <span className={styles.optionalDot} /> {t("可选方案")} <span aria-live="polite">· {statusLabel}</span></p>
         </div>
         <div className={styles.materialGrid}>
           {templateSet.groups.map((group) => {
@@ -480,17 +482,17 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
                   <h4>{group.name}</h4>
                   <span className={fixed ? styles.fixedBadge : styles.optionalBadge}>
                     {fixed ? <LockKeyhole aria-hidden="true" size={11} /> : null}
-                    {fixed ? "固定模板" : "可选方案"}
+                    {fixed ? t("固定模板") : t("可选方案")}
                   </span>
-                  <button aria-label={`展开编辑 ${group.name}`} aria-controls="pop-template-editor" aria-expanded={editorOpen && selectedGroup?.id === group.id} className={styles.expandButton} onClick={() => {
+                  <button aria-label={t("展开编辑 {name}", { name: group.name })} aria-controls="pop-template-editor" aria-expanded={editorOpen && selectedGroup?.id === group.id} className={styles.expandButton} onClick={() => {
                     setSelectedTemplateId(chosenId);
                     setEditorOpen(true);
                     requestAnimationFrame(() => document.getElementById("pop-template-editor")?.scrollIntoView?.({ block: "start" }));
-                  }} title={`展开编辑 ${group.name}`} type="button">
+                  }} title={t("展开编辑 {name}", { name: group.name })} type="button">
                     <Maximize2 aria-hidden="true" size={14} />
                   </button>
                 </div>
-                <div aria-label={`${group.name} 方案`} className={styles.materialVariants} role={fixed ? undefined : "radiogroup"}>
+                <div aria-label={t("{name} 方案", { name: group.name })} className={styles.materialVariants} role={fixed ? undefined : "radiogroup"}>
                   {group.variants.map((variant) => {
                     const content = contentByTemplateId[variant.templateId];
                     const svg = namespacePreviewSvg(
@@ -513,23 +515,21 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
             );
           })}
         </div>
-        <p className={styles.overviewHint}>每个可选物料组选一个方案，固定模板全部包含。整套生成后可逐项下载图片，展开卡片可修改文字和裁切图片。</p>
         {stage ? <p aria-live="polite" className={styles.stage}>{stage}</p> : null}
         {error ? <p className={styles.error} role="alert">{error}</p> : null}
       </div>
 
-      {materials.length ? <section aria-label="整套 POP 物料" className={styles.result}>
-        <div className={styles.resultHeader}><h3>整套物料（{materials.length}）</h3><span className={styles.resultMode}>本地模板导出</span></div>
-        <p className={styles.overviewHint}>以下为所选方案与全部固定模板的下载链接，PNG 为平面图片，SVG 保留模板矢量内容。</p>
+      {materials.length ? <section aria-label={t("整套 POP 物料")} className={styles.result}>
+        <div className={styles.resultHeader}><h3>{t("整套物料（{count}）", { count: materials.length })}</h3><span className={styles.resultMode}>{t("本地模板导出")}</span></div>
         <div className={styles.materialResults}>{materials.map((material) => <article key={material.templateId}>
           <img alt={material.name} src={material.pngUrl} />
           <strong>{material.name}</strong>
-          <div><a aria-label={`下载 PNG · ${material.name}`} download={`${material.templateId}.png`} href={material.pngUrl}>下载 PNG</a><a aria-label={`下载 SVG · ${material.name}`} download={`${material.templateId}.svg`} href={material.svgUrl}>下载 SVG</a></div>
+          <div><a aria-label={t("下载 PNG · {name}", { name: material.name })} download={`${material.templateId}.png`} href={material.pngUrl}>{t("下载 PNG")}</a><a aria-label={t("下载 SVG · {name}", { name: material.name })} download={`${material.templateId}.svg`} href={material.svgUrl}>{t("下载 SVG")}</a></div>
         </article>)}</div>
       </section> : null}
 
       {editorOpen ? <div className={styles.editorSection} id="pop-template-editor">
-      <div className={styles.editorBar}><strong>编辑模板 · {selectedGroup?.name}</strong><button className={styles.resetPlacementButton} onClick={() => setEditorOpen(false)} type="button">收起编辑</button></div>
+      <div className={styles.editorBar}><strong>{t("编辑模板 · {name}", { name: selectedGroup?.name ?? "" })}</strong><button className={styles.resetPlacementButton} onClick={() => setEditorOpen(false)} type="button">{t("收起编辑")}</button></div>
       <div className={styles.workspace}>
         <div className={styles.canvasPane}>
           <div className={styles.canvasHeader}>
@@ -541,20 +541,20 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
             </div>
             <div className={styles.zoomControls}>
               <button
-                aria-label="缩小 POP 画布"
+                aria-label={t("缩小 POP 画布")}
                 disabled={canvasZoom <= MIN_CANVAS_ZOOM}
                 onClick={() =>
                   setCanvasZoom((current) =>
                     Math.max(MIN_CANVAS_ZOOM, current - CANVAS_ZOOM_STEP)
                   )
                 }
-                title="缩小 POP 画布"
+                title={t("缩小 POP 画布")}
                 type="button"
               >
                 <ZoomOut aria-hidden="true" size={17} />
               </button>
               <input
-                aria-label="POP 画布缩放"
+                aria-label={t("POP 画布缩放")}
                 max={MAX_CANVAS_ZOOM * 100}
                 min={MIN_CANVAS_ZOOM * 100}
                 onChange={(event) =>
@@ -566,14 +566,14 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
               />
               <output>{Math.round(canvasZoom * 100)}%</output>
               <button
-                aria-label="放大 POP 画布"
+                aria-label={t("放大 POP 画布")}
                 disabled={canvasZoom >= MAX_CANVAS_ZOOM}
                 onClick={() =>
                   setCanvasZoom((current) =>
                     Math.min(MAX_CANVAS_ZOOM, current + CANVAS_ZOOM_STEP)
                   )
                 }
-                title="放大 POP 画布"
+                title={t("放大 POP 画布")}
                 type="button"
               >
                 <ZoomIn aria-hidden="true" size={17} />
@@ -592,15 +592,15 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
           <div className={styles.legend}>
             <span className={styles.legendItem}>
               <i className={styles.blueSwatch} />
-              文字区域
+              {t("文字区域")}
             </span>
             <span className={styles.legendItem}>
               <i className={styles.graySwatch} />
-              图片区域
+              {t("图片区域")}
             </span>
             <span className={styles.legendItem}>
               <i className={styles.selectedSwatch} />
-              当前 Sticker
+              {t("当前 Sticker")}
             </span>
           </div>
         </div>
@@ -613,9 +613,9 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
 
           <div className={styles.inspectorFields}>
             <label className={styles.field}>
-              当前 Sticker
+              {t("当前 Sticker")}
               <select
-                aria-label="当前 Sticker"
+                aria-label={t("当前 Sticker")}
                 onChange={(event) => selectTemplate(event.target.value)}
                 value={selectedTemplateId}
               >
@@ -656,21 +656,21 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
                       }
                       value={selectedDraft.imageAssetIds[slot.id] ?? ""}
                     >
-                      <option value="">灰色占位</option>
+                      <option value="">{t("灰色占位")}</option>
                       {imageAssets.map((asset) => (
                         <option key={asset.id} value={asset.id}>
                           {asset.filename}
-                          {asset.source === "uploaded" ? "（已上传）" : ""}
+                          {asset.source === "uploaded" ? t("（已上传）") : ""}
                         </option>
                       ))}
                     </select>
                   </label>
                   <button
-                    aria-label={"上传" + slot.label}
+                    aria-label={t("上传{label}", { label: slot.label })}
                     className={styles.iconButton}
                     disabled={status === "uploading" || status === "generating"}
                     onClick={() => requestImageUpload(slot.id)}
-                    title={"上传" + slot.label}
+                    title={t("上传{label}", { label: slot.label })}
                     type="button"
                   >
                     <ImagePlus aria-hidden="true" size={18} />
@@ -681,7 +681,7 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
 
             <div className={styles.compositorNotice}>
               <Move aria-hidden="true" size={16} />
-              在下方产品预览中直接拖动 Sticker，并拖拽右下角控制点调整大小。
+              {t("在下方产品预览中直接拖动 Sticker，并拖拽右下角控制点调整大小。")}
             </div>
           </div>
         </aside>
@@ -708,7 +708,7 @@ export function PopCanvasStudio({ products }: { products: ProductWithProfile[] }
           file={pendingCrop.file}
           onCancel={cancelImageCrop}
           onConfirm={uploadCroppedImage}
-          title={`裁切 ${getPopTemplate(pendingCrop.target.templateId).name} 图片`}
+          title={t("裁切 {name} 图片", { name: getPopTemplate(pendingCrop.target.templateId).name })}
         />
       ) : null}
     </section>
@@ -749,6 +749,7 @@ function StickerProductComposer({
   productName: string;
   productImageUrl?: string;
 }) {
+  const { t } = useI18n();
   const previewNamespace = useId().replace(/[^a-zA-Z0-9_-]/g, "");
   const [placement, setPlacement] = useState<StickerPlacement>(DEFAULT_STICKER_PLACEMENT);
   const [exportState, setExportState] = useState<"idle" | "exporting" | "done" | "failed">("idle");
@@ -948,15 +949,14 @@ function StickerProductComposer({
     <section className={styles.compositorSection} aria-labelledby="pop-compositor-title">
       <div className={styles.compositorHeader}>
         <div>
-          <p className={styles.eyebrow}>PRODUCT STICKER COMPOSITOR</p>
-          <h3 id="pop-compositor-title">产品贴装预览</h3>
-          <span>{productName} · {templateName} · 本地拖拽合成</span>
+          <h3 id="pop-compositor-title">{t("产品贴装预览")}</h3>
+          <span>{t("{product} · {template} · 本地拖拽合成", { product: productName, template: templateName })}</span>
         </div>
         <div className={styles.compositorActions}>
           <label className={styles.sizeControl}>
-            <span>Sticker 大小</span>
+            <span>{t("Sticker 大小")}</span>
             <input
-              aria-label="Sticker 大小"
+              aria-label={t("Sticker 大小")}
               max="64"
               min="8"
               onChange={(event) => {
@@ -983,7 +983,7 @@ function StickerProductComposer({
             type="button"
           >
             <Download aria-hidden="true" size={16} />
-            {exportState === "exporting" ? "正在导出" : "导出当前贴装图"}
+            {exportState === "exporting" ? t("正在导出") : t("导出当前贴装图")}
           </button>
         </div>
       </div>
@@ -998,7 +998,7 @@ function StickerProductComposer({
       >
         {productImageUrl ? <img alt={`${productName} 本地贴装产品图`} draggable={false} src={productImageUrl} /> : <p className={styles.missingPhoto}>当前产品暂无产品图，请先在资产中心补充产品图片。</p>}
         {productImageUrl ? <div
-          aria-label="可拖动 Sticker"
+          aria-label={t("可拖动 Sticker")}
           className={styles.stickerOverlay}
           onKeyDown={handleKeyboard}
           onPointerDown={(event) => beginDrag(event, "move")}
@@ -1012,7 +1012,7 @@ function StickerProductComposer({
             dangerouslySetInnerHTML={{ __html: displaySvg }}
           />
           <button
-            aria-label="拖动调整 Sticker 大小"
+            aria-label={t("拖动调整 Sticker 大小")}
             className={styles.stickerResizeHandle}
             onPointerDown={(event) => beginDrag(event, "resize")}
             type="button"
@@ -1025,12 +1025,12 @@ function StickerProductComposer({
       <div className={styles.compositorFooter}>
         <span>
           <Move aria-hidden="true" size={15} />
-          拖动 Sticker 调整位置；拖动右下角控制点或使用滑杆调整大小。
+          {t("拖动 Sticker 调整位置；拖动右下角控制点或使用滑杆调整大小。")}
         </span>
         {exportUrl ? (
           <a download="midea-pop-sticker-composition.png" href={exportUrl}>
             <Download aria-hidden="true" size={14} />
-            再次下载
+            {t("再次下载")}
           </a>
         ) : null}
         {exportError ? <strong>{exportError}</strong> : null}

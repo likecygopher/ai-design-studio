@@ -8,7 +8,6 @@ export default function Page() {
       <div className={styles.workspace}>
         <header className={styles.heading}>
           <h1>白底图多角度</h1>
-          <p>导入同一产品的参考图，自动处理背景并补全标准视角。</p>
         </header>
         <WhiteBackgroundRunner />
       </div>

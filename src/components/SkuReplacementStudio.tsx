@@ -44,6 +44,7 @@ import {
 import type { Asset, AssetType, ProductWithProfile } from "@/src/domain/types";
 import { ImageModelSelector } from "./ImageModelSelector";
 import styles from "./SkuReplacementStudio.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 const ACCEPTED_IMAGES = "image/png,image/jpeg,image/webp";
 const MAX_WORK_WIDTH = 960;
@@ -68,6 +69,7 @@ type MaskEditorHandle = {
 type MaskTool = "brush" | "smart" | "eraser";
 
 export function SkuReplacementStudio() {
+  const { t } = useI18n();
   const [products, setProducts] = useState<ProductWithProfile[]>([]);
   const [productsLoaded, setProductsLoaded] = useState(false);
 
@@ -131,7 +133,7 @@ export function SkuReplacementStudio() {
       const payload = await response.json();
       const uploaded = payload.assets?.[0] as Asset | undefined;
       if (!response.ok || payload.error || !uploaded) {
-        throw new Error(payload.error ?? "图片上传失败。");
+        throw new Error(payload.error ?? t("图片上传失败。"));
       }
 
       const previous = selectedProduct.assets.filter(
@@ -154,11 +156,11 @@ export function SkuReplacementStudio() {
       );
       setOutput(null);
       if (type !== "sku-mask") {
-        setMessage(`已上传：${uploaded.filename}`);
+        setMessage(t("已上传：{name}", { name: uploaded.filename }));
       }
       return uploaded;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "图片上传失败。");
+      setMessage(error instanceof Error ? error.message : t("图片上传失败。"));
       return null;
     } finally {
       setUploadingType(null);
@@ -176,7 +178,7 @@ export function SkuReplacementStudio() {
         method: "DELETE"
       });
       if (!response.ok) {
-        throw new Error("删除图片失败。");
+        throw new Error(t("删除图片失败。"));
       }
       setProducts((current) =>
         current.map((product) =>
@@ -186,9 +188,9 @@ export function SkuReplacementStudio() {
         )
       );
       setOutput(null);
-      setMessage("图片已移除。");
+      setMessage(t("图片已移除。"));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "删除图片失败。");
+      setMessage(error instanceof Error ? error.message : t("删除图片失败。"));
     } finally {
       setUploadingType(null);
     }
@@ -205,38 +207,34 @@ export function SkuReplacementStudio() {
       if (mode !== "reference-part") {
         const maskFile = await maskEditorRef.current?.exportMaskFile();
         if (!maskFile) {
-          throw new Error("请先在画布中选择需要修改的部件区域。");
+          throw new Error(t("请先在画布中选择需要修改的部件区域。"));
         }
         const maskAsset = await uploadAsset(maskFile, "sku-mask");
         if (!maskAsset) {
-          throw new Error("选区蒙版上传失败。");
+          throw new Error(t("选区蒙版上传失败。"));
         }
         maskAssetId = maskAsset.id;
       }
 
-      const response = await fetch("/api/sku-replacement", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          productId: selectedProduct.id,
-          mode,
-          imageModel,
-          baseAssetId: baseAsset.id,
-          referenceAssetId: mode === "reference-part" ? referenceAsset?.id : undefined,
-          maskAssetId: maskAssetId || undefined,
-          selectionDescription:
-            mode === "color" || mode === "style" ? selectionDescriptions[mode] : undefined,
-          instruction: instructions[mode]
-        })
+      const { postCapabilityJob } = await import("@/src/platform/client/job-client");
+      const payload = await postCapabilityJob<{ output?: SkuOutput }>("/api/sku-replacement", {
+        productId: selectedProduct.id,
+        mode,
+        imageModel,
+        baseAssetId: baseAsset.id,
+        referenceAssetId: mode === "reference-part" ? referenceAsset?.id : undefined,
+        maskAssetId: maskAssetId || undefined,
+        selectionDescription:
+          mode === "color" || mode === "style" ? selectionDescriptions[mode] : undefined,
+        instruction: instructions[mode]
       });
-      const payload = await response.json();
-      if (!response.ok || payload.error || !payload.output) {
-        throw new Error(payload.error ?? "SKU 局部替换生成失败。");
+      if (!payload.output) {
+        throw new Error(t("SKU 局部替换生成失败。"));
       }
-      setOutput(payload.output as SkuOutput);
-      setMessage("局部替换结果已生成。未选区域应与原产品保持一致。");
+      setOutput(payload.output);
+      setMessage(t("局部替换结果已生成。未选区域应与原产品保持一致。"));
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "SKU 局部替换生成失败。");
+      setMessage(error instanceof Error ? error.message : t("SKU 局部替换生成失败。"));
     } finally {
       setGenerating(false);
     }
@@ -245,7 +243,8 @@ export function SkuReplacementStudio() {
   if (productsLoaded && products.length === 0) {
     return (
       <section className={styles.emptyState}>
-        还没有产品。请先到 <a href="/products">产品档案</a> 创建产品，再回到本页上传产品图。
+        {t("还没有产品。请先到")} <a href="/products">{t("产品档案")}</a>{" "}
+        {t("创建产品，再回到本页上传产品图。")}
       </section>
     );
   }
@@ -254,8 +253,7 @@ export function SkuReplacementStudio() {
     <div className={styles.studio}>
       <section className={styles.controlBand}>
         <div className={styles.taskCopy}>
-          <strong>只修改指定部件，整机其余结构、材质、Logo、视角和光影保持不变</strong>
-          <span>产品与部件类型由上传素材决定，空气炸锅仅作为默认提示词示例。</span>
+          <strong>{t("只修改指定部件，整机其余结构、材质、Logo、视角和光影保持不变")}</strong>
         </div>
         <div className={styles.controls}>
           <ImageModelSelector
@@ -278,12 +276,12 @@ export function SkuReplacementStudio() {
             ) : (
               <Play aria-hidden size={17} />
             )}
-            {generating ? "AI 替换中" : output ? "重新生成" : "生成替换结果"}
+            {generating ? t("AI 替换中") : output ? t("重新生成") : t("生成替换结果")}
           </button>
         </div>
       </section>
 
-      <div aria-label="SKU 替换方式" className={styles.modeTabs} role="tablist">
+      <div aria-label={t("SKU 替换方式")} className={styles.modeTabs} role="tablist">
         {SKU_REPLACEMENT_MODES.map((item) => (
           <button
             aria-selected={mode === item.id}
@@ -303,8 +301,8 @@ export function SkuReplacementStudio() {
             role="tab"
             type="button"
           >
-            <strong>{item.label}</strong>
-            <span>{item.description}</span>
+            <strong>{t(item.label)}</strong>
+            <span>{t(item.description)}</span>
           </button>
         ))}
       </div>
@@ -313,29 +311,28 @@ export function SkuReplacementStudio() {
         <section className={styles.referenceWorkspace}>
           <div className={styles.sectionHeading}>
             <div>
-              <h2>产品图与新部件图</h2>
-              <p>两张图片缺一不可。系统把第二张图的部件设计替换到第一张产品图中。</p>
+              <h2>{t("产品图与新部件图")}</h2>
             </div>
-            <strong>{baseAsset && referenceAsset ? "输入已完整" : "需要 2 张图片"}</strong>
+            <strong>{baseAsset && referenceAsset ? t("输入已完整") : t("需要 2 张图片")}</strong>
           </div>
           <div className={styles.uploadGrid}>
             <AssetUploadSlot
               asset={baseAsset}
               busy={uploadingType === "sku-product"}
-              label="image 1 · 产品整机图"
+              label={t("image 1 · 产品整机图")}
               onRemove={baseAsset?.type === "sku-product" ? () => removeAsset(baseAsset) : undefined}
               onUpload={(file) => uploadAsset(file, "sku-product")}
               required
-              supporting="产品完整、视角清楚；可直接使用产品档案中的产品图。"
+              supporting={t("产品完整、视角清楚；可直接使用产品档案中的产品图。")}
             />
             <AssetUploadSlot
               asset={referenceAsset}
               busy={uploadingType === "sku-reference-part"}
-              label="image 2 · 新配件 / 部件图"
+              label={t("image 2 · 新配件 / 部件图")}
               onRemove={referenceAsset ? () => removeAsset(referenceAsset) : undefined}
               onUpload={(file) => uploadAsset(file, "sku-reference-part")}
               required
-              supporting="尽量正对部件拍摄，图标、丝印、材质和边缘清晰可辨。"
+              supporting={t("尽量正对部件拍摄，图标、丝印、材质和边缘清晰可辨。")}
             />
           </div>
           <PromptEditor
@@ -348,8 +345,7 @@ export function SkuReplacementStudio() {
         <section className={styles.maskWorkspace}>
           <div className={styles.sectionHeading}>
             <div>
-              <h2>{mode === "color" ? "选择需要改色的部件" : "选择需要改款的部件"}</h2>
-              <p>智能选区适合颜色连续的区域，画笔与橡皮用于精确修正边缘。</p>
+              <h2>{mode === "color" ? t("选择需要改色的部件") : t("选择需要改款的部件")}</h2>
             </div>
             <label className={styles.inlineUpload}>
               {uploadingType === "sku-product" ? (
@@ -357,10 +353,10 @@ export function SkuReplacementStudio() {
               ) : (
                 <ImagePlus aria-hidden size={16} />
               )}
-              {baseAsset ? "替换产品图" : "上传产品图"}
+              {baseAsset ? t("替换产品图") : t("上传产品图")}
               <input
                 accept={ACCEPTED_IMAGES}
-                aria-label="上传 SKU 产品图"
+                aria-label={t("上传 SKU 产品图")}
                 disabled={generating || Boolean(uploadingType)}
                 onChange={(event) => {
                   const file = event.target.files?.[0];
@@ -382,7 +378,7 @@ export function SkuReplacementStudio() {
             />
             <aside className={styles.promptPanel}>
               <label className={styles.textField}>
-                选中部件说明
+                {t("选中部件说明")}
                 <input
                   disabled={generating}
                   onChange={(event) =>
@@ -391,7 +387,7 @@ export function SkuReplacementStudio() {
                       [mode]: event.target.value
                     }))
                   }
-                  placeholder="例如：顶部金属包边和下方把手"
+                  placeholder={t("例如：顶部金属包边和下方把手")}
                   value={selectionDescriptions[mode]}
                 />
               </label>
@@ -409,7 +405,7 @@ export function SkuReplacementStudio() {
                 ) : (
                   <MousePointer2 aria-hidden size={17} />
                 )}
-                {hasSelection ? "选区已准备" : "请在左侧画布选择部件"}
+                {hasSelection ? t("选区已准备") : t("请在左侧画布选择部件")}
               </div>
             </aside>
           </div>
@@ -422,23 +418,23 @@ export function SkuReplacementStudio() {
         <section className={styles.resultSection}>
           <div className={styles.sectionHeading}>
             <div>
-              <h2>SKU 局部替换结果</h2>
-              <p>{SKU_REPLACEMENT_MODES.find((item) => item.id === output.mode)?.label}</p>
+              <h2>{t("SKU 局部替换结果")}</h2>
+              <p>{t(SKU_REPLACEMENT_MODES.find((item) => item.id === output.mode)?.label ?? "")}</p>
             </div>
             <span>{output.model}</span>
           </div>
           <div className={styles.resultLayout}>
             <div className={styles.resultImage}>
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img alt="SKU 局部替换结果" src={output.url} />
+              <img alt={t("SKU 局部替换结果")} src={output.url} />
             </div>
             <div className={styles.resultMeta}>
               <CheckCircle2 aria-hidden color="#0049bb" size={20} />
-              <strong>AI 图像编辑完成</strong>
+              <strong>{t("AI 图像编辑完成")}</strong>
               <span>{new Date(output.generatedAt).toLocaleString()}</span>
               <a href={output.url} target="_blank">
                 <ExternalLink aria-hidden size={15} />
-                打开原图
+                {t("打开原图")}
               </a>
             </div>
           </div>
@@ -465,11 +461,12 @@ function AssetUploadSlot({
   required?: boolean;
   supporting: string;
 }) {
+  const { t } = useI18n();
   return (
     <article className={styles.uploadSlot}>
       <div className={styles.slotHeader}>
         <strong>{label}</strong>
-        {required ? <span>必填</span> : null}
+        {required ? <span>{t("必填")}</span> : null}
       </div>
       <div className={styles.slotPreview}>
         {asset ? (
@@ -478,7 +475,7 @@ function AssetUploadSlot({
         ) : (
           <div className={styles.slotPlaceholder}>
             <ImagePlus aria-hidden size={30} />
-            <span>等待上传</span>
+            <span>{t("等待上传")}</span>
           </div>
         )}
       </div>
@@ -486,10 +483,10 @@ function AssetUploadSlot({
       <div className={styles.slotActions}>
         <label className={styles.uploadButton}>
           {busy ? <Loader2 aria-hidden className={styles.spinner} size={16} /> : <ImagePlus aria-hidden size={16} />}
-          {asset ? "替换图片" : "上传图片"}
+          {asset ? t("替换图片") : t("上传图片")}
           <input
             accept={ACCEPTED_IMAGES}
-            aria-label={`上传${label}`}
+            aria-label={t("上传{label}", { label })}
             disabled={busy}
             onChange={(event) => {
               const file = event.target.files?.[0];
@@ -502,7 +499,7 @@ function AssetUploadSlot({
           />
         </label>
         {onRemove ? (
-          <button aria-label={`删除${label}`} onClick={onRemove} title={`删除${label}`} type="button">
+          <button aria-label={t("删除{label}", { label })} onClick={onRemove} title={t("删除{label}", { label })} type="button">
             <Trash2 aria-hidden size={16} />
           </button>
         ) : null}
@@ -523,11 +520,16 @@ function PromptEditor({
   onChange: (value: string) => void;
   value: string;
 }) {
+  const { t } = useI18n();
   return (
     <label className={compact ? styles.promptEditorCompact : styles.promptEditor}>
-      {mode === "color" ? "颜色 / 材质替换要求" : mode === "style" ? "局部样式替换要求" : "部件替换要求"}
+      {mode === "color"
+        ? t("颜色 / 材质替换要求")
+        : mode === "style"
+          ? t("局部样式替换要求")
+          : t("部件替换要求")}
       <textarea
-        aria-label="SKU 局部替换提示词"
+        aria-label={t("SKU 局部替换提示词")}
         onChange={(event) => onChange(event.target.value)}
         rows={compact ? 10 : 6}
         value={value}
@@ -541,6 +543,7 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
   disabled: boolean;
   onSelectionChange: (selected: boolean) => void;
 }>(function SkuMaskEditor({ asset, disabled, onSelectionChange }, ref) {
+  const { t } = useI18n();
   const [tool, setTool] = useState<MaskTool>("smart");
   const [brushSize, setBrushSize] = useState(34);
   const [tolerance, setTolerance] = useState(38);
@@ -584,7 +587,7 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
       analysis.height = height;
       const context = analysis.getContext("2d", { willReadFrequently: true });
       if (!context) {
-        setLoadError("浏览器无法创建图像选区画布。");
+        setLoadError(t("浏览器无法创建图像选区画布。"));
         return;
       }
       context.drawImage(image, 0, 0, width, height);
@@ -593,7 +596,7 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
       setCanvasSize({ width, height });
       setMask(createEditableMask(width, height));
     };
-    image.onerror = () => setLoadError("产品图片载入失败，请重新上传。");
+    image.onerror = () => setLoadError(t("产品图片载入失败，请重新上传。"));
     image.src = asset.url;
   }, [asset]);
 
@@ -636,7 +639,7 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
       working.height = mask.height;
       const context = working.getContext("2d");
       if (!context) {
-        throw new Error("无法导出选区蒙版。");
+        throw new Error(t("无法导出选区蒙版。"));
       }
       const pixels = context.createImageData(mask.width, mask.height);
       for (let index = 0; index < mask.values.length; index += 1) {
@@ -654,7 +657,7 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
       output.height = naturalSize.height;
       const outputContext = output.getContext("2d");
       if (!outputContext) {
-        throw new Error("无法导出原始尺寸选区蒙版。");
+        throw new Error(t("无法导出原始尺寸选区蒙版。"));
       }
       outputContext.imageSmoothingEnabled = false;
       outputContext.drawImage(working, 0, 0, output.width, output.height);
@@ -747,26 +750,26 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
   return (
     <div className={styles.maskEditor}>
       <div className={styles.maskToolbar}>
-        <div className={styles.toolGroup} aria-label="选区工具">
-          <ToolButton active={tool === "smart"} icon={<MousePointer2 size={17} />} label="智能选区" onClick={() => setTool("smart")} />
-          <ToolButton active={tool === "brush"} icon={<Brush size={17} />} label="画笔" onClick={() => setTool("brush")} />
-          <ToolButton active={tool === "eraser"} icon={<Eraser size={17} />} label="橡皮" onClick={() => setTool("eraser")} />
+        <div className={styles.toolGroup} aria-label={t("选区工具")}>
+          <ToolButton active={tool === "smart"} icon={<MousePointer2 size={17} />} label={t("智能选区")} onClick={() => setTool("smart")} />
+          <ToolButton active={tool === "brush"} icon={<Brush size={17} />} label={t("画笔")} onClick={() => setTool("brush")} />
+          <ToolButton active={tool === "eraser"} icon={<Eraser size={17} />} label={t("橡皮")} onClick={() => setTool("eraser")} />
           <button
-            aria-label="撤销上一步"
+            aria-label={t("撤销上一步")}
             className={styles.iconButton}
             disabled={disabled || historyDepth === 0}
             onClick={undoMaskOperation}
-            title="撤销上一步"
+            title={t("撤销上一步")}
             type="button"
           >
             <Undo2 aria-hidden size={17} />
           </button>
           <button
-            aria-label="清空选区"
+            aria-label={t("清空选区")}
             className={styles.iconButton}
             disabled={disabled || !mask || !hasMaskSelection(mask)}
             onClick={() => applyMaskOperation(clearEditableMask)}
-            title="清空选区"
+            title={t("清空选区")}
             type="button"
           >
             <Trash2 aria-hidden size={17} />
@@ -774,9 +777,9 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
         </div>
         {tool === "smart" ? (
           <label className={styles.sliderField}>
-            识别容差
+            {t("识别容差")}
             <input
-              aria-label="智能选区识别容差"
+              aria-label={t("智能选区识别容差")}
               disabled={disabled}
               max="80"
               min="8"
@@ -788,9 +791,9 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
           </label>
         ) : (
           <label className={styles.sliderField}>
-            笔刷大小
+            {t("笔刷大小")}
             <input
-              aria-label="选区笔刷大小"
+              aria-label={t("选区笔刷大小")}
               disabled={disabled}
               max="96"
               min="6"
@@ -812,9 +815,9 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
         {asset && mask ? (
           <>
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img alt="SKU 产品选区底图" draggable={false} src={asset.url} />
+            <img alt={t("SKU 产品选区底图")} draggable={false} src={asset.url} />
             <canvas
-              aria-label="SKU 部件选区画布"
+              aria-label={t("SKU 部件选区画布")}
               className={tool === "smart" ? styles.smartCursor : styles.brushCursor}
               height={canvasSize.height}
               onPointerCancel={endDrawing}
@@ -832,13 +835,13 @@ const SkuMaskEditor = forwardRef<MaskEditorHandle, {
             ) : (
               <ImagePlus aria-hidden size={34} />
             )}
-            <strong>{asset ? "正在读取图片尺寸" : "请先上传产品图"}</strong>
+            <strong>{asset ? t("正在读取图片尺寸") : t("请先上传产品图")}</strong>
           </div>
         )}
         {loadError ? <div className={styles.canvasError}>{loadError}</div> : null}
       </div>
       <p className={styles.canvasStatus}>
-        蓝色覆盖区域将被允许修改；未覆盖区域由蒙版严格保护。
+        {t("蓝色覆盖区域将被允许修改；未覆盖区域由蒙版严格保护。")}
       </p>
     </div>
   );

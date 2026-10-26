@@ -1,6 +1,20 @@
-﻿import { NextResponse } from "next/server";
-import { readDemoCostRecords } from "@/src/services/demo-api";
+import { NextResponse } from "next/server";
+import { requireUserId } from "@/src/platform/auth";
+import { toErrorResponse } from "@/src/platform/http";
+import { getBudgetSnapshot } from "@/src/platform/quotas";
+import { createUserWorkspace } from "@/src/platform/workspace";
+
+export const dynamic = "force-dynamic";
 
 export async function GET() {
-  return NextResponse.json({ records: await readDemoCostRecords() });
+  try {
+    const userId = await requireUserId();
+    const [records, budget] = await Promise.all([
+      createUserWorkspace(userId).costLedger.readRecords(),
+      getBudgetSnapshot(userId)
+    ]);
+    return NextResponse.json({ records, budget });
+  } catch (error) {
+    return toErrorResponse(error);
+  }
 }

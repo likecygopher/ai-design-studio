@@ -9,6 +9,7 @@ import {
 import { Crop, RotateCcw, X, ZoomIn, ZoomOut } from "lucide-react";
 import { computeCoverCropPlacement } from "@/src/domain/image-crop";
 import styles from "./ImageCropDialog.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type ImageCropDialogProps = {
   file: File;
@@ -36,6 +37,7 @@ export function ImageCropDialog({
   onCancel,
   onConfirm
 }: ImageCropDialogProps) {
+  const { t } = useI18n();
   const safeAspect = Math.min(Math.max(aspectRatio || 1, 0.35), 4);
   const previewHeight = Math.round(PREVIEW_WIDTH / safeAspect);
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -140,7 +142,7 @@ export function ImageCropDialog({
       output.height = Math.max(1, Math.round(OUTPUT_WIDTH / safeAspect));
       const context = output.getContext("2d");
       if (!context) {
-        throw new Error("当前浏览器不支持图片裁切");
+        throw new Error(t("当前浏览器不支持图片裁切"));
       }
       drawCrop(context, image, output.width, output.height, zoom, panX, panY);
       const blob = await canvasToBlob(output);
@@ -159,16 +161,16 @@ export function ImageCropDialog({
         <header className={styles.header}>
           <div>
             <span>IMAGE CROP</span>
-            <h2>{title}</h2>
+            <h2>{t(title)}</h2>
           </div>
-          <button aria-label="关闭图片编辑器" className={styles.iconButton} onClick={onCancel} type="button">
+          <button aria-label={t("关闭图片编辑器")} className={styles.iconButton} onClick={onCancel} type="button">
             <X aria-hidden size={18} />
           </button>
         </header>
 
         <div className={styles.canvasStage}>
           <canvas
-            aria-label="图片裁切画布"
+            aria-label={t("图片裁切画布")}
             className={styles.canvas}
             height={previewHeight}
             onPointerCancel={finishDrag}
@@ -178,12 +180,14 @@ export function ImageCropDialog({
             ref={canvasRef}
             width={PREVIEW_WIDTH}
           />
-          <span className={styles.cropGuide}><Crop aria-hidden size={17} /> 拖动图片调整取景</span>
+          <span className={styles.cropGuide}>
+            <Crop aria-hidden size={17} /> {t("拖动图片调整取景")}
+          </span>
         </div>
 
         <div className={styles.controls}>
           <button
-            aria-label="缩小图片"
+            aria-label={t("缩小图片")}
             className={styles.iconButton}
             onClick={() => setZoom((current) => clamp(current - 0.1, 0.25, 3))}
             type="button"
@@ -191,7 +195,7 @@ export function ImageCropDialog({
             <ZoomOut aria-hidden size={16} />
           </button>
           <input
-            aria-label="图片缩放"
+            aria-label={t("图片缩放")}
             max="3"
             min="0.25"
             onChange={(event) => setZoom(Number(event.target.value))}
@@ -200,7 +204,7 @@ export function ImageCropDialog({
             value={zoom}
           />
           <button
-            aria-label="放大图片"
+            aria-label={t("放大图片")}
             className={styles.iconButton}
             onClick={() => setZoom((current) => clamp(current + 0.1, 0.25, 3))}
             type="button"
@@ -209,16 +213,18 @@ export function ImageCropDialog({
           </button>
           <output>{Math.round(zoom * 100)}%</output>
           <button className={styles.secondaryButton} onClick={reset} type="button">
-            <RotateCcw aria-hidden size={15} /> 重置
+            <RotateCcw aria-hidden size={15} /> {t("重置")}
           </button>
         </div>
 
         <footer className={styles.footer}>
-          <span>支持 25%–300% 缩放；留白区域将保持透明。</span>
+          <span>{t("支持 25%–300% 缩放；留白区域将保持透明。")}</span>
           <div>
-            <button className={styles.secondaryButton} onClick={onCancel} type="button">取消</button>
+            <button className={styles.secondaryButton} onClick={onCancel} type="button">
+          {t("取消")}
+        </button>
             <button className={styles.primaryButton} disabled={!ready || saving} onClick={confirm} type="button">
-              <Crop aria-hidden size={16} /> {saving ? "处理中" : "应用裁切"}
+              <Crop aria-hidden size={16} /> {saving ? t("处理中") : t("应用裁切")}
             </button>
           </div>
         </footer>

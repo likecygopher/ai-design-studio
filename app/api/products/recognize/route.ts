@@ -1,23 +1,25 @@
 import { NextResponse } from "next/server";
-import { createDemoAssetStore } from "@/src/services/demo-api";
-import { createDefaultCostLedger } from "@/src/services/cost-ledger";
-import { createDefaultProductRegistry } from "@/src/services/product-registry";
+import { requireUserId } from "@/src/platform/auth";
+import { toErrorResponse } from "@/src/platform/http";
+import { createUserWorkspace } from "@/src/platform/workspace";
+
+export const dynamic = "force-dynamic";
 
 export async function POST(request: Request) {
-  const body = await request.json().catch(() => null);
-  const productId = String(body?.productId ?? "");
-
-  if (!productId) {
-    return NextResponse.json({ error: "缺少 productId。" }, { status: 400 });
-  }
-
   try {
-    const registry = createDefaultProductRegistry(createDemoAssetStore());
-    const result = await registry.recognizeSellingPoints(productId);
+    const userId = await requireUserId();
+    const body = await request.json().catch(() => null);
+    const productId = String(body?.productId ?? "");
 
-    // LLM PDF extraction costs one text-model call; rule parsing is free.
+    if (!productId) {
+      return NextResponse.json({ error: "缺少 productId。" }, { status: 400 });
+    }
+
+    const workspace = createUserWorkspace(userId);
+    const result = await workspace.productRegistry.recognizeSellingPoints(productId);
+
     const usedLlm = Boolean(result.model && result.model !== "rule-parser");
-    await createDefaultCostLedger().appendRecord({
+    await workspace.costLedger.appendRecord({
       taskId: `recognize-${productId}-${Date.now()}`,
       task: "Selling-point extraction",
       model: result.model ?? "rule-parser",
@@ -31,7 +33,6 @@ export async function POST(request: Request) {
 
     return NextResponse.json(result);
   } catch (error) {
-    const message = error instanceof Error ? error.message : "识别卖点失败";
-    return NextResponse.json({ error: message }, { status: 400 });
+    return toErrorResponse(error, 400);
   }
 }

@@ -7,6 +7,7 @@ import type { Asset, ProductWithProfile } from "@/src/domain/types";
 import { mapWithConcurrency } from "@/src/lib/concurrency";
 import { ImageModelSelector } from "./ImageModelSelector";
 import styles from "./LocalizePanel.module.css";
+import { useI18n } from "@/src/i18n/I18nProvider";
 
 type Material = { id: string; file: File; originalName: string; previewUrl: string; assetId?: string; base?: { file: File; previewUrl: string } };
 type Job = Material & { state: "pending" | "running" | "done" | "failed"; resultUrl?: string; error?: string; width?: number; height?: number };
@@ -20,6 +21,7 @@ const SVG_RASTER_MAX_DIMENSION = 2048;
 const SUPPORTED_IMAGE_TYPES = new Set(["image/png", "image/jpeg", "image/webp", "image/svg+xml"]);
 
 export function LocalizePanel() {
+  const { t } = useI18n();
   const [mode, setMode] = useState<"single" | "bundle">("single");
   const [imageModel, setImageModel] = useState<ImageModelChoice>(DEFAULT_IMAGE_MODEL_CHOICE);
   const [targetCountry, setTargetCountry] = useState("Mexico");
@@ -47,9 +49,9 @@ export function LocalizePanel() {
     const abort = new AbortController();
     fetch("/api/settings", { signal: abort.signal }).then(async response => {
       const payload = await response.json();
-      if (!response.ok || !payload.settings?.country || !payload.settings?.language) throw new Error("无法读取默认市场，当前使用 Mexico / Spanish。");
+      if (!response.ok || !payload.settings?.country || !payload.settings?.language) throw new Error(t("无法读取默认市场，当前使用 Mexico / Spanish。"));
       if (!abort.signal.aborted && !marketEdited.current) { setTargetCountry(payload.settings.country); setTargetLanguage(payload.settings.language); }
-    }).catch(cause => { if (!abort.signal.aborted) setSettingsError(cause instanceof Error ? cause.message : "无法读取默认市场。"); }).finally(() => { if (!abort.signal.aborted) setSettingsLoaded(true); });
+    }).catch(cause => { if (!abort.signal.aborted) setSettingsError(cause instanceof Error ? cause.message : t("无法读取默认市场。")); }).finally(() => { if (!abort.signal.aborted) setSettingsLoaded(true); });
     return () => abort.abort();
   }, []);
 
@@ -59,11 +61,11 @@ export function LocalizePanel() {
     Promise.all([fetch("/api/upload", { signal: abort.signal }), fetch("/api/products", { signal: abort.signal })]).then(async ([uploadResponse, productsResponse]) => {
       const uploaded = await uploadResponse.json();
       const products = await productsResponse.json();
-      if (!uploadResponse.ok || !Array.isArray(uploaded.assets)) throw new Error("素材库加载失败，请重试。");
+      if (!uploadResponse.ok || !Array.isArray(uploaded.assets)) throw new Error(t("素材库加载失败，请重试。"));
       const combined: Asset[] = [...uploaded.assets, ...(Array.isArray(products.products) ? products.products.flatMap((product: ProductWithProfile) => product.assets ?? []) : [])];
       const images = combined.filter(asset => /\.(png|jpe?g|webp|svg)(?:\?|$)/i.test(asset.filename || asset.url));
       if (!abort.signal.aborted) setAssets([...new Map(images.map(asset => [asset.id, asset])).values()]);
-    }).catch(cause => { if (!abort.signal.aborted) setLibraryError(cause instanceof Error ? cause.message : "素材库加载失败，请重试。"); }).finally(() => { if (!abort.signal.aborted) setLibraryLoaded(true); });
+    }).catch(cause => { if (!abort.signal.aborted) setLibraryError(cause instanceof Error ? cause.message : t("素材库加载失败，请重试。")); }).finally(() => { if (!abort.signal.aborted) setLibraryLoaded(true); });
     return () => abort.abort();
   }, [libraryVersion]);
 
@@ -94,13 +96,13 @@ export function LocalizePanel() {
     try {
       const limit = mode === "single" ? 1 : MAX_UPLOAD_COUNT - items.length;
       const selected = files.slice(0, Math.max(0, limit));
-      const failures = files.length > selected.length ? [`${mode === "single" ? "单张模式仅选择 1 张" : "一次最多处理 20 张图片"}。`] : [];
+      const failures = files.length > selected.length ? [`${mode === "single" ? t("单张模式仅选择 1 张") : t("一次最多处理 20 张图片")}。`] : [];
       const next: Material[] = [];
       for (const source of selected) {
         try {
           const file = await normalizeUploadFile(source);
           next.push({ id: createUploadId(), file, originalName: source.name, previewUrl: preview(file), assetId });
-        } catch (cause) { failures.push(`${source.name}: ${cause instanceof Error ? cause.message : "无法读取图片"}`); }
+        } catch (cause) { failures.push(`${source.name}: ${cause instanceof Error ? cause.message : t("无法读取图片")}`); }
       }
       if (next.length) setItems(current => mode === "single" ? next : [...current, ...next]);
       if (failures.length) setError(failures.join("；"));
@@ -113,10 +115,10 @@ export function LocalizePanel() {
     let file: File;
     try {
       const response = await fetch(asset.url);
-      if (!response.ok) throw new Error("无法读取所选素材，请重新选择或本地上传。");
+      if (!response.ok) throw new Error(t("无法读取所选素材，请重新选择或本地上传。"));
       const blob = await response.blob();
       file = new File([blob], asset.filename, { type: blob.type || imageTypeFromName(asset.filename) });
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "无法读取素材"); return; }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("无法读取素材")); return; }
     finally { preparingRef.current = false; setPreparing(false); }
     await addFiles([file], asset.id);
   }
@@ -132,7 +134,7 @@ export function LocalizePanel() {
       if (originalSize.width !== baseSize.width || originalSize.height !== baseSize.height) throw new Error(`底图尺寸必须与 ${material.originalName} 完全一致（${originalSize.width} × ${originalSize.height}），请检查配对。`);
       const base = { file: normalized, previewUrl: preview(normalized) };
       setItems(current => current.map(item => item.id === id ? { ...item, base } : item));
-    } catch (cause) { setError(cause instanceof Error ? cause.message : "底图读取失败"); }
+    } catch (cause) { setError(cause instanceof Error ? cause.message : t("底图读取失败")); }
     finally { preparingRef.current = false; setPreparing(false); }
   }
 
@@ -154,9 +156,9 @@ export function LocalizePanel() {
           form.append("country", batch.country); form.append("language", batch.language); form.append("imageModel", batch.imageModel);
           const response = await fetch("/api/localize", { method: "POST", body: form, signal: abort.signal });
           const payload = await response.json();
-          if (!response.ok || payload.error || !payload.url) throw new Error(payload.error ?? `生成失败：${response.status}`);
+          if (!response.ok || payload.error || !payload.url) throw new Error(payload.error ?? t("生成失败：{status}", { status: response.status }));
           update(item.id, { state: "done", resultUrl: payload.url, width: payload.width, height: payload.height, error: undefined });
-        } catch (cause) { update(item.id, { state: "failed", error: cause instanceof Error ? cause.message : "生成失败，请重试" }); }
+        } catch (cause) { update(item.id, { state: "failed", error: cause instanceof Error ? cause.message : t("生成失败，请重试") }); }
       });
     } finally { active.current = false; if (!abort.signal.aborted) setRunning(false); }
   }
@@ -164,57 +166,65 @@ export function LocalizePanel() {
   const completed = run?.jobs.filter(job => job.state === "done").length ?? 0;
   const failed = run?.jobs.filter(job => job.state === "failed").length ?? 0;
   return <section className={styles.studio}>
-    <header className={styles.heading}><h1>多语言环境自适应</h1><p>自动替换画面文字，生成适合目标语言环境的图片。</p></header>
+    <header className={styles.heading}><h1>{t("多语言环境自适应")}</h1></header>
     <div className={styles.topRow}>
       <section className={styles.panel}>
-        <div className={styles.sectionHeading}><h2>选择原始素材</h2><div className={styles.segment} aria-label="素材模式">
-          <button type="button" disabled={blocked} aria-pressed={mode === "single"} onClick={() => { if (active.current || preparingRef.current) return; if (items.length > 1) { setError("请先移除多余物料，再切换到单张素材。"); return; } setMode("single"); }}>单张素材</button>
-          <button type="button" disabled={blocked} aria-pressed={mode === "bundle"} onClick={() => { if (!active.current && !preparingRef.current) setMode("bundle"); }}>物料组合包</button>
+        <div className={styles.sectionHeading}><h2>{t("选择原始素材")}</h2><div className={styles.segment} aria-label={t("素材模式")}>
+          <button type="button" disabled={blocked} aria-pressed={mode === "single"} onClick={() => { if (active.current || preparingRef.current) return; if (items.length > 1) { setError(t("请先移除多余物料，再切换到单张素材。")); return; } setMode("single"); }}>{t("单张素材")}</button>
+          <button type="button" disabled={blocked} aria-pressed={mode === "bundle"} onClick={() => { if (!active.current && !preparingRef.current) setMode("bundle"); }}>{t("物料组合包")}</button>
         </div></div>
         <div className={styles.materials}>
           {items.length ? items.map(item => <div className={styles.material} key={item.id}>
-            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.previewUrl} alt={`原图 ${item.originalName}`} />
-            <span title={item.originalName}>{item.originalName}</span><button type="button" disabled={blocked} aria-label={`移除 ${item.originalName}`} onClick={() => { if (!active.current && !preparingRef.current) setItems(current => current.filter(value => value.id !== item.id)); }}>移除</button>
-          </div>) : <div className={styles.empty}><ImagePlus size={26} aria-hidden /><span>选择已完成设计的图片</span><small>从素材库选择，或添加本地图片</small></div>}
+            {/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.previewUrl} alt={t("原图 {name}", { name: item.originalName })} />
+            <span title={item.originalName}>{item.originalName}</span><button type="button" disabled={blocked} aria-label={t("移除 {name}", { name: item.originalName })} onClick={() => { if (!active.current && !preparingRef.current) setItems(current => current.filter(value => value.id !== item.id)); }}>{t("移除")}</button>
+          </div>) : <div className={styles.empty}><ImagePlus size={26} aria-hidden /><span>{t("选择已完成设计的图片")}</span><small>{t("从素材库选择，或添加本地图片")}</small></div>}
         </div>
         <div className={styles.actions}>
-          <button type="button" className={styles.secondary} disabled={blocked} onClick={() => setLibraryOpen(value => !value)}><FolderOpen size={14} aria-hidden />从素材库选择</button>
-          <label className={styles.secondary}><Upload size={14} aria-hidden />本地上传<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label="上传待转换图片" disabled={blocked} multiple={mode === "bundle"} onChange={event => { void addFiles(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} /></label>
-          {items.length ? <button className={styles.textButton} type="button" disabled={blocked} onClick={() => { if (!active.current && !preparingRef.current) { setItems([]); setError(""); } }}>清空</button> : null}
+          <button type="button" className={styles.secondary} disabled={blocked} onClick={() => setLibraryOpen(value => !value)}><FolderOpen size={14} aria-hidden />{t("从素材库选择")}</button>
+          <label className={styles.secondary}><Upload size={14} aria-hidden />{t("本地上传")}<input type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" aria-label={t("上传待转换图片")} disabled={blocked} multiple={mode === "bundle"} onChange={event => { void addFiles(Array.from(event.currentTarget.files ?? [])); event.currentTarget.value = ""; }} /></label>
+          {items.length ? <button className={styles.textButton} type="button" disabled={blocked} onClick={() => { if (!active.current && !preparingRef.current) { setItems([]); setError(""); } }}>{t("清空")}</button> : null}
         </div>
-        <p className={styles.hint}>{mode === "bundle" ? `当前组合包 · ${items.length} 项真实物料，统一适配目标语言。` : "单张适配 · 每次处理一项素材。"} 支持 PNG、JPEG、WebP、SVG；每张不超过 30 MB，组合包最多 20 项。</p>
-        {libraryOpen ? <div className={styles.library} aria-label="素材库">
-          <div className={styles.sectionHeading}><strong>现有素材</strong><button type="button" className={styles.textButton} disabled={blocked} onClick={() => setLibraryOpen(false)}>收起</button></div>
-          {!libraryLoaded ? <p className={styles.hint}>正在读取素材库…</p> : null}
-          {libraryError ? <p role="alert">{libraryError}<button type="button" disabled={blocked} onClick={() => setLibraryVersion(value => value + 1)}>重试加载</button></p> : null}
-          {libraryLoaded && !libraryError && !assets.length ? <p className={styles.hint}>素材库暂无图片，请本地上传。</p> : null}
-          <div className={styles.libraryGrid}>{assets.map(asset => <button type="button" key={asset.id} aria-label={`选择素材 ${asset.filename}`} disabled={blocked || (mode === "bundle" && (items.length >= MAX_UPLOAD_COUNT || items.some(item => item.assetId === asset.id)))} onClick={() => void addAsset(asset)}>
+        <p className={styles.hint}>{t("PNG / JPEG / WebP，单张 ≤30 MB，最多 20 项。")}</p>
+        {libraryOpen ? <div className={styles.library} aria-label={t("素材库")}>
+          <div className={styles.sectionHeading}><strong>{t("现有素材")}</strong><button type="button" className={styles.textButton} disabled={blocked} onClick={() => setLibraryOpen(false)}>{t("收起")}</button></div>
+          {!libraryLoaded ? <p className={styles.hint}>{t("正在读取素材库…")}</p> : null}
+          {libraryError ? <p role="alert">{libraryError}<button type="button" disabled={blocked} onClick={() => setLibraryVersion(value => value + 1)}>{t("重试加载")}</button></p> : null}
+          {libraryLoaded && !libraryError && !assets.length ? <p className={styles.hint}>{t("素材库暂无图片，请本地上传。")}</p> : null}
+          <div className={styles.libraryGrid}>{assets.map(asset => <button type="button" key={asset.id} aria-label={t("选择素材 {name}", { name: asset.filename })} disabled={blocked || (mode === "bundle" && (items.length >= MAX_UPLOAD_COUNT || items.some(item => item.assetId === asset.id)))} onClick={() => void addAsset(asset)}>
             {/* eslint-disable-next-line @next/next/no-img-element */}<img src={asset.url} alt="" /><span>{asset.filename}</span>
           </button>)}</div>
         </div> : null}
       </section>
-      <section className={`${styles.panel} ${styles.basePanel}`}><div className={styles.sectionHeading}><h2>上传原始底图 <small>可选</small></h2></div>
-        <p className={styles.hint}>为每项素材配对同尺寸、同构图的无文字底图。未提供时自动修复文字区域。</p>
-        {!items.length ? <div className={styles.baseEmpty}><ImagePlus size={30} aria-hidden /><span>先选择原始素材</span></div> : <div className={styles.baseList}>{items.map(item => <div key={item.id} className={styles.baseItem}>
-          {item.base ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.base.previewUrl} alt={`底图 ${item.originalName}`} /></> : <ImagePlus size={22} aria-hidden />}
-          <div><strong title={item.originalName}>{item.originalName}</strong><label className={styles.textButton}>{item.base ? "更换对应底图" : "上传对应底图"}<input aria-label={`上传底图 ${item.originalName}`} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={blocked} onChange={event => { void pairBase(item.id, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /></label>
-          {item.base ? <button type="button" className={styles.textButton} disabled={blocked} aria-label={`移除底图 ${item.originalName}`} onClick={() => { if (!active.current && !preparingRef.current) setItems(current => current.map(value => value.id === item.id ? { ...value, base: undefined } : value)); }}>移除底图</button> : null}</div>
+      <section className={`${styles.panel} ${styles.basePanel}`}><div className={styles.sectionHeading}><h2>{t("上传原始底图")} <small>{t("可选")}</small></h2></div>
+        {!items.length ? <div className={styles.baseEmpty}><ImagePlus size={30} aria-hidden /><span>{t("先选择原始素材")}</span></div> : <div className={styles.baseList}>{items.map(item => <div key={item.id} className={styles.baseItem}>
+          {item.base ? <>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={item.base.previewUrl} alt={t("底图 {name}", { name: item.originalName })} /></> : <ImagePlus size={22} aria-hidden />}
+          <div><strong title={item.originalName}>{item.originalName}</strong><label className={styles.textButton}>{item.base ? t("更换对应底图") : t("上传对应底图")}<input aria-label={t("上传底图 {name}", { name: item.originalName })} type="file" accept="image/png,image/jpeg,image/webp,image/svg+xml" disabled={blocked} onChange={event => { void pairBase(item.id, event.currentTarget.files?.[0]); event.currentTarget.value = ""; }} /></label>
+          {item.base ? <button type="button" className={styles.textButton} disabled={blocked} aria-label={t("移除底图 {name}", { name: item.originalName })} onClick={() => { if (!active.current && !preparingRef.current) setItems(current => current.map(value => value.id === item.id ? { ...value, base: undefined } : value)); }}>{t("移除底图")}</button> : null}</div>
         </div>)}</div>}
       </section>
     </div>
     <div className={styles.bottomRow}>
-      <section className={styles.panel}><h2>选择目标语言</h2><div className={styles.marketFields}>
-        <label>目标语言<div className={styles.language}><Languages size={19} aria-hidden /><select aria-label="目标语言" value={targetLanguage} disabled={blocked} onChange={event => { marketEdited.current = true; setTargetLanguage(event.target.value); }}>{[...new Set([...languages, targetLanguage])].map(language => <option key={language} value={language}>{languageLabels[language] ?? language}</option>)}</select></div></label>
-        <label>目标国家<select aria-label="目标国家" value={targetCountry} disabled={blocked} onChange={event => { marketEdited.current = true; setTargetCountry(event.target.value); }}>{[...new Set([...countries, targetCountry])].map(country => <option key={country}>{country}</option>)}</select></label>
-      </div><p className={styles.hint}>默认使用系统设置中的市场与语言，本次选择应用于当前全部物料。</p>{settingsError ? <p role="status" className={styles.hint}>{settingsError}</p> : null}</section>
-      <section className={`${styles.panel} ${styles.generatePanel}`}><ImageModelSelector disabled={blocked} onChange={setImageModel} value={imageModel} /><p className={styles.hint}>{items.length} 项物料 · 目标语言：{languageLabels[targetLanguage] ?? targetLanguage}</p><button data-generate-action="true" className={styles.primary} type="button" disabled={blocked || !items.length || !settingsLoaded} onClick={() => void execute({ country: targetCountry, language: targetLanguage, imageModel, jobs: items.map(item => ({ ...item, state: "pending" })) })}><WandSparkles size={17} aria-hidden />{running ? "正在生成适配图片…" : preparing ? "正在准备素材…" : `生成适配图片（${items.length}）`}</button></section>
+      <section className={styles.panel}><h2>{t("选择目标语言")}</h2><div className={styles.marketFields}>
+        <label>{t("目标语言")}<div className={styles.language}><Languages size={19} aria-hidden /><select aria-label={t("目标语言")} value={targetLanguage} disabled={blocked} onChange={event => { marketEdited.current = true; setTargetLanguage(event.target.value); }}>{[...new Set([...languages, targetLanguage])].map(language => <option key={language} value={language}>{languageLabels[language] ?? language}</option>)}</select></div></label>
+        <label>{t("目标国家")}<select aria-label={t("目标国家")} value={targetCountry} disabled={blocked} onChange={event => { marketEdited.current = true; setTargetCountry(event.target.value); }}>{[...new Set([...countries, targetCountry])].map(country => <option key={country}>{country}</option>)}</select></label>
+      </div>{settingsError ? <p role="status" className={styles.hint}>{settingsError}</p> : null}</section>
+      <section className={`${styles.panel} ${styles.generatePanel}`}><ImageModelSelector disabled={blocked} onChange={setImageModel} value={imageModel} /><p className={styles.hint}>{t("{count} 项物料 · 目标语言：{language}", { count: items.length, language: languageLabels[targetLanguage] ?? targetLanguage })}</p><button data-generate-action="true" className={styles.primary} type="button" disabled={blocked || !items.length || !settingsLoaded} onClick={() => void execute({ country: targetCountry, language: targetLanguage, imageModel, jobs: items.map(item => ({ ...item, state: "pending" })) })}><WandSparkles size={17} aria-hidden />{running
+            ? t("正在生成适配图片…")
+            : preparing
+              ? t("正在准备素材…")
+              : t("生成适配图片（{count}）", { count: items.length })}</button></section>
     </div>
     {error ? <p role="alert" className={styles.error}>{error}</p> : null}
-    <p className={styles.footer}>辅助生成说明：保持原图像素尺寸、产品外观与构图，生成后请核对专有词与版式。SVG 会先转为最长边不超过 2048px 的 PNG。</p>
-    {run ? <section className={styles.panel}><div className={styles.sectionHeading}><h2>适配结果 <small>{completed}/{run.jobs.length} 已完成 · {run.language} / {run.country}</small></h2>{failed ? <button type="button" className={styles.secondary} disabled={blocked} onClick={() => void execute(run, true)}>重试失败项（{failed}）</button> : null}</div>
-      <div className={styles.results}>{run.jobs.map(job => <article key={job.id} className={styles.result}><div className={styles.sectionHeading}><strong>{job.originalName}</strong><span role="status">{job.state === "done" ? "转换完成" : job.state === "failed" ? `转换失败：${job.error}` : job.state === "running" ? "正在识别并适配文字…" : "等待生成"}</span></div><div className={styles.comparison}>
-        <figure>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={job.previewUrl} alt={`结果对照原图 ${job.originalName}`} /><figcaption>原始素材{job.base ? " · 已配对无文字底图" : ""}</figcaption></figure>
-        {job.resultUrl ? <figure>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={job.resultUrl} alt={`本地化结果 ${job.originalName}`} /><figcaption>{run.language}{job.width && job.height ? ` · ${job.width} × ${job.height}` : ""}<a href={job.resultUrl} download={`localized-${job.originalName.replace(/\.[^.]+$/, "")}.png`}><Download size={13} aria-hidden />下载图片</a></figcaption></figure> : <div className={styles.resultEmpty}>{job.state === "failed" ? "本项生成失败，可单独重试" : "适配结果将在这里显示"}</div>}
+    {run ? <section className={styles.panel}><div className={styles.sectionHeading}><h2>{t("适配结果")} <small>{t("{done}/{total} 已完成 · {language} / {country}", { done: completed, total: run.jobs.length, language: run.language, country: run.country })}</small></h2>{failed ? <button type="button" className={styles.secondary} disabled={blocked} onClick={() => void execute(run, true)}>{t("重试失败项（{count}）", { count: failed })}</button> : null}</div>
+      <div className={styles.results}>{run.jobs.map(job => <article key={job.id} className={styles.result}><div className={styles.sectionHeading}><strong>{job.originalName}</strong><span role="status">{job.state === "done"
+                ? t("转换完成")
+                : job.state === "failed"
+                  ? t("转换失败：{error}", { error: job.error ?? "" })
+                  : job.state === "running"
+                    ? t("正在识别并适配文字…")
+                    : t("等待生成")}</span></div><div className={styles.comparison}>
+        <figure>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={job.previewUrl} alt={t("结果对照原图 {name}", { name: job.originalName })} /><figcaption>{t("原始素材")}{job.base ? t(" · 已配对无文字底图") : ""}</figcaption></figure>
+        {job.resultUrl ? <figure>{/* eslint-disable-next-line @next/next/no-img-element */}<img src={job.resultUrl} alt={t("本地化结果 {name}", { name: job.originalName })} /><figcaption>{run.language}{job.width && job.height ? ` · ${job.width} × ${job.height}` : ""}<a href={job.resultUrl} download={`localized-${job.originalName.replace(/\.[^.]+$/, "")}.png`}><Download size={13} aria-hidden />{t("下载图片")}</a></figcaption></figure> : <div className={styles.resultEmpty}>{job.state === "failed" ? t("本项生成失败，可单独重试") : t("适配结果将在这里显示")}</div>}
       </div></article>)}</div>
     </section> : null}
   </section>;
