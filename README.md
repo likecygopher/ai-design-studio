@@ -22,83 +22,231 @@
 
 业务工作流（13 个）：封面页、创作中心、资产库、产品档案、白底图多角度、手机图标准化、SKU 局部替换、风格迁移、Icon Design VI、产品视频、POP 物料、PDP 长图、多语言本地化；任务中心、成本记录、账户设置与用户管理为平台能力。
 
-## 快速开始（本地开发）
+## 快速开始（本地开发，约 5 分钟）
 
-要求 Node.js 24（`.nvmrc`）与 pnpm 11.15.1。
+### 0. 前置条件
 
-**一键启动（PostgreSQL + schema + demo 种子 + Web + Worker）：**
+| 工具 | 版本 / 说明 | 检查命令 |
+|---|---|---|
+| Node.js | **24.x**（见 `.nvmrc`） | `node -v` |
+| pnpm | **11.15.1**（`packageManager`） | `pnpm -v` |
+| Docker | Docker Desktop 或 Docker Engine，含 Compose v2 | `docker compose version` |
+| Git | 任意近期版本 | `git --version` |
 
-```bash
-pnpm install --frozen-lockfile   # 首次
-pnpm dev:all                     # Ctrl+C 同时停止 web/worker
-```
-
-访问 http://127.0.0.1:3000（`demo@midea.local` / `demo1234`）。
-
-手动分步：
+推荐用 nvm 安装 Node：
 
 ```bash
-nvm use                       # 或 nvm install 24
+nvm install 24
+nvm use 24
 corepack enable
-pnpm install --frozen-lockfile
-
-# 1) 启动 PostgreSQL（localhost:5433）
-pnpm db:up
-
-# 2) 配置环境变量
-cp .env.example .env.local    # 至少填 DATABASE_URL 与 AUTH_SECRET（>=32 字符）
-
-# 3) 建表 + 种子管理员（开发便捷；生产用 pnpm db:deploy）
-pnpm db:push
-pnpm db:seed
-
-# 4) 两个终端分别启动
-pnpm dev                      # http://127.0.0.1:3000
-pnpm worker                   # 异步任务消费者
 ```
 
-开发种子账号：`demo@midea.local` / `demo1234`（**仅非生产**允许该默认口令）。生产 seed 必须显式提供 `SEED_ADMIN_EMAIL` + 强 `SEED_ADMIN_PASSWORD`，否则脚本拒绝执行。
+### 1. 获取代码
 
-首次访问 `http://127.0.0.1:3000/` 为公开封面页；登录后进入 `/studio-home`。未登录访问受保护页面会重定向 `/login?callbackUrl=...`。
+```bash
+git clone -b cloud git@github.com:likecygopher/ai-design-studio.git
+cd ai-design-studio
+pnpm install --frozen-lockfile
+```
+
+> 如果代码已合并到 `main`，去掉 `-b cloud` 即可。Windows 建议在 WSL2 中执行以下命令。
+
+### 2. 启动 PostgreSQL（Docker）
+
+项目自带 `docker-compose.yml`，**开发环境只需要数据库**：
+
+```bash
+pnpm db:up          # 等价于 docker compose up -d postgres
+```
+
+它会启动：
+
+| 项 | 值 |
+|---|---|
+| 容器 | `midea-ai-postgres` |
+| 镜像 | `postgres:16-alpine` |
+| 地址 | `127.0.0.1:5433` |
+| 用户 / 密码 | `midea` / `midea` |
+| 数据库 | `midea_ai_studio` |
+| 数据卷 | `midea_pg_data`（删除容器不丢数据） |
+
+确认就绪：
+
+```bash
+docker compose ps postgres
+docker exec midea-ai-postgres pg_isready -U midea -d midea_ai_studio
+# 输出 ... accepting connections 即成功
+```
+
+**不用 compose 的等价写法**（二选一，不要和上面的 `pnpm db:up` 同时启动，容器名/端口会冲突）：
+
+```bash
+docker volume create midea_pg_data
+docker run -d --name midea-ai-postgres \
+  -e POSTGRES_USER=midea \
+  -e POSTGRES_PASSWORD=midea \
+  -e POSTGRES_DB=midea_ai_studio \
+  -p 5433:5432 \
+  -v midea_pg_data:/var/lib/postgresql/data \
+  --restart unless-stopped \
+  postgres:16-alpine
+```
+
+停止数据库但保留数据：
+
+```bash
+docker compose stop postgres
+```
+
+彻底删除开发数据库（**会清空数据**）：
+
+```bash
+docker compose down -v
+```
+
+### 3. 配置环境变量
+
+```bash
+cp .env.example .env.local
+```
+
+生成并写入会话密钥（至少 32 字符）：
+
+```bash
+openssl rand -base64 32
+# 把输出替换 .env.local 中的 AUTH_SECRET=...
+```
+
+> Prisma CLI 只读取 `.env`，而 Next.js 读取 `.env.local`。macOS/Linux 建议创建软链接，让两处共用同一份配置：
+>
+> ```bash
+> ln -sf .env.local .env
+> ```
+>
+> Windows 没有软链接时执行 `Copy-Item .env.local .env` 即可；两份文件中的 `DATABASE_URL` 必须一致。
+
+`.env.local` 最少需要：
+
+```dotenv
+DATABASE_URL=postgresql://midea:midea@127.0.0.1:5433/midea_ai_studio?schema=public
+AUTH_SECRET=<openssl rand -base64 32 的输出>
+AUTH_TRUST_HOST=true
+```
+
+其余变量按需修改，完整说明见 [`.env.example`](.env.example) 和 [`docs/runbook.md`](docs/runbook.md) §2。AI Key 不是启动必需项。
+
+### 4. 初始化数据库
+
+```bash
+pnpm db:push     # 开发环境：按 schema 建表/同步
+pnpm db:seed     # 创建演示管理员（可重复执行）
+```
+
+生产环境不要用 `db:push`，改用迁移：
+
+```bash
+pnpm db:deploy
+```
+
+### 5. 启动 Web + Worker
+
+**方式 A：一条命令（推荐）**
+
+```bash
+pnpm dev:all
+```
+
+自动完成：启动 PostgreSQL → 等待就绪 → `db:push` → 首次 seed → 同时启动 Next.js 与 Worker。`Ctrl+C` 会同时停止 Web/Worker，但不会删除数据库。
+
+**方式 B：两个终端手动启动**
+
+```bash
+# 终端 1：Web
+pnpm dev
+
+# 终端 2：Worker（Worker 不会自己读 .env.local，需要先注入）
+set -a
+source .env.local
+set +a
+pnpm worker
+```
+
+> 只启动 Web 也能登录和浏览，但创建生成任务后会一直排队；必须启动 Worker 才会执行。
+> Windows PowerShell 建议直接用 `pnpm dev:all`。
+
+### 6. 访问与验证
+
+| 地址 | 说明 |
+|---|---|
+| http://127.0.0.1:3000 | 公开封面页 |
+| http://127.0.0.1:3000/login | 登录 |
+| http://127.0.0.1:3000/studio-home | 登录后的工作台 |
+| http://127.0.0.1:3000/admin | 管理端（管理员账号） |
+| http://127.0.0.1:3000/api/health | 健康检查 |
+| http://127.0.0.1:3000/api/ready | 就绪检查（含 Worker/DB） |
+
+本地种子账号（仅非生产环境允许）：
+
+```text
+demo@midea.local / demo1234
+```
+
+命令行验证：
+
+```bash
+curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/ready
+```
+
+### 7. 配置 AI 生成能力（可选）
+
+不配置也能启动、登录、管理；只是实际生成会失败。二选一：
+
+1. 登录管理员 → `/admin/ai`，表格中新增 OpenAI 兼容 / 火山方舟供应商并「设为生效」；
+2. 在 `.env.local` 填 `OPENAI_API_KEY` / `OPENAI_BASE_URL` / `OPENAI_IMAGE_MODEL`，或 `ARK_API_KEY`，重启 Web + Worker。
+
+密钥会 AES-256-GCM 加密落库，界面只显示掩码。
+
+### 常见问题
+
+| 现象 | 处理 |
+|---|---|
+| `Cannot connect to the Docker daemon` | 启动 Docker Desktop / `sudo systemctl start docker` |
+| `Port 5433 is already allocated` | 本机已有 PostgreSQL；停掉冲突容器，或改 `docker-compose.yml` 映射端口并同步 `DATABASE_URL` |
+| `P1001: Can't reach database server` | `docker compose ps postgres`；确认 `.env`/`.env.local` 的 `DATABASE_URL` 是 `127.0.0.1:5433` |
+| `Environment variable not found: DATABASE_URL` | Prisma 没读到 `.env`；执行 `ln -sf .env.local .env`（Windows 复制文件） |
+| 登录报配置错误 | `AUTH_SECRET` 必须 ≥32 字符，并设置 `AUTH_TRUST_HOST=true` |
+| 任务一直「排队中」 | Worker 未启动；另一个终端执行 `pnpm worker`，或直接用 `pnpm dev:all` |
+| 修改 schema 后类型报错 | `pnpm prisma generate`，再重启 TypeScript/Next |
+| 想重置演示数据 | `docker compose down -v && pnpm db:up && pnpm db:push && pnpm db:seed`（会删库） |
+| 端口 3000 被占用 | `lsof -i :3000` 后停止旧进程，或 `PORT=3001 pnpm dev` |
 
 ## 目录结构
 
-```
+```text
 app/                  页面与 API 路由（App Router）
   api/                REST 接口（health/ready/admin/jobs/assets/auth/各工作流）
-  admin/users         用户管理页（仅管理员）
-  login|register|jobs|account 平台页面（认证页统一玻璃视觉）
+  admin/              管理端页面：概览/用户/任务/套餐/AI/市场/审计
+  account/            账户设置、组织与 SSO 配置
+  login|register/     认证页
 src/
-  platform/           平台层：config/errors/logger/http/api(handleApi)/rate-limit/audit/auth/jobs/worker-heartbeat/workspace/user-*
+  platform/           平台层：config/errors/logger/http/api/rate-limit/audit/auth/jobs/...
     storage/          魔数校验、配额、清理、下载头
     client/           浏览器端任务客户端
   components/         业务 UI 组件（每个组件配 *.test.tsx）
   domain/             纯领域逻辑（模板、排版、提示词、工作流状态机）
   services/           Provider 适配、图像处理、成本账本、资产与产品仓储
-  lib/                前端通用工具（api-client 等）
+  i18n/               中英文案与格式化
 prisma/               schema、migrations、seed
-scripts/              worker.ts、cleanup.ts
+scripts/              worker.ts、cleanup.ts、dev-all.sh、deploy-docker.sh
+e2e/                  Playwright 冒烟测试
 docs/
-  sdd/                SDD 宪法/规格/设计/计划/任务（本次改造依据）
+  sdd/                SDD 宪法/规格/设计/计划/任务
   runbook.md          部署/回滚/排障/限流/配额/备份运维手册
 ```
 
-## 常用命令
-
-```bash
-pnpm dev            # 开发服务器
-pnpm build          # prisma generate + next build（standalone）
-pnpm start          # 生产启动
-pnpm worker         # 任务 Worker
-pnpm typecheck      # tsc --noEmit
-pnpm test           # vitest run（全量单测/组件测试）
-pnpm test:watch     # 监听模式
-pnpm db:deploy      # 生产迁移（prisma migrate deploy）
-pnpm db:seed        # 幂等种子（管理员）
-pnpm cleanup -- --dry-run   # 存储清理预览
-```
-
 ## 配置
+
 
 完整变量表见 [`.env.example`](.env.example) 与 `docs/runbook.md` §2。核心项：
 
@@ -151,34 +299,79 @@ E2E 覆盖：登录、工作台、管理端五个页面、任务中心/成本页
 - 数据治理：`GET /api/account/export`（本人 JSON 导出）、`DELETE /api/account`（密码确认注销）、`GET /api/admin/audit/export`（审计 CSV）。
 - 套餐：`GET/POST /api/admin/plans`、`PATCH/DELETE /api/admin/plans/{id}`；`PATCH /api/admin/users/{id}` 绑定 `planId`。
 
-## 部署
+## Docker 生产式部署（一键）
 
-**一键 Docker 生产式部署（推荐）：**
+适合把整套平台跑在一台服务器/本机上：PostgreSQL、迁移、Web、Worker 全部容器化，数据落在 Docker volume。
+
+**要求**：Docker Desktop / Docker Engine + Compose v2；从源码构建需要本机有 Node 24 与 pnpm（仅用于执行脚本和构建镜像）。
 
 ```bash
+# 首次会生成 .env.docker（含随机 AUTH_SECRET、管理员账号密码，权限 600）
 pnpm deploy:docker
 ```
 
-脚本会自动：
-1. 首次运行生成 `.env.docker`（AUTH_SECRET、管理员邮箱与随机强密码，权限 600）；
-2. 构建并启动 `postgres / migrate / web / worker`；
-3. 执行 `prisma migrate deploy` 与幂等管理员 seed；
-4. 等待 `/api/health`、`/api/ready` 并打印访问地址与管理员账号。
+脚本会依次完成：
 
-常用参数：`WEB_PORT=8080 POSTGRES_PORT=15433 pnpm deploy:docker`；已有数据可 `SKIP_SEED=1 pnpm deploy:docker`；查看日志 `docker compose --env-file .env.docker logs -f web worker`。
+1. 生成或复用 `.env.docker`；
+2. `docker compose up -d --build` 构建并启动 `postgres / migrate / web / worker`；
+3. `prisma migrate deploy` 应用数据库迁移；
+4. 通过一次性 `seed` 服务创建管理员；
+5. 等待 `/api/health` 与 `/api/ready`，打印访问地址和管理员账号。
 
-手动 compose：
+默认地址：
+
+| 服务 | 地址 / 说明 |
+|---|---|
+| Web | `http://localhost:3000` |
+| PostgreSQL | `localhost:5433`（容器内 `postgres:5432`） |
+| 数据卷 | `midea_pg_data`（数据库）、`studio-storage`（上传/生成产物） |
+
+常用参数：
+
+```bash
+# 改端口 / 指定管理员
+WEB_PORT=8080 POSTGRES_PORT=15433 \
+ADMIN_EMAIL=owner@acme.com ADMIN_PASSWORD='StrongPass1234' \
+pnpm deploy:docker
+
+# 已有数据，跳过 seed（不会重置管理员密码）
+SKIP_SEED=1 pnpm deploy:docker
+
+# 只生成 .env.docker 并校验 compose，不构建/启动
+DEPLOY_DRY_RUN=1 pnpm deploy:docker
+```
+
+日常运维：
+
+```bash
+docker compose --env-file .env.docker ps
+docker compose --env-file .env.docker logs -f web worker
+docker compose --env-file .env.docker restart web worker
+docker compose --env-file .env.docker down          # 停止，保留数据
+docker compose --env-file .env.docker down -v       # 停止并删除数据卷（危险）
+```
+
+手动 compose（不使用脚本）：
 
 ```bash
 export AUTH_SECRET="$(openssl rand -base64 32)"
 export SEED_ADMIN_EMAIL=admin@example.com
-export SEED_ADMIN_PASSWORD='<12+位含字母数字>'
+export SEED_ADMIN_PASSWORD='<至少 12 位，含字母和数字>'
+
 docker compose up -d --build
 docker compose --profile seed run --rm seed
 curl -fsS http://127.0.0.1:3000/api/health
+curl -fsS http://127.0.0.1:3000/api/ready
 ```
 
-compose 包含 `postgres` / `migrate`（一次性迁移）/ `web` / `worker` / `seed`（profile），存储卷 `studio-storage` 挂载 `/data`。生产环境请用 HTTPS 反向代理并透传 `x-forwarded-proto` 与 Host。
+生产注意事项：
+
+- 用 Nginx / Caddy / 云负载均衡终止 HTTPS，并透传 `Host` 与 `x-forwarded-proto`；
+- 设置 `APP_URL=https://你的域名`，`AUTH_TRUST_HOST=true`；
+- 不要把 `5433` 暴露到公网；
+- 定期备份 `midea_pg_data` 与 `studio-storage`，并定期执行 `pnpm cleanup`；
+- 多副本部署需要 `REDIS_URL` + `STORAGE_DRIVER=s3`（见 `docs/runbook.md`）；
+- 回滚/迁移/排障流程见 [`docs/runbook.md`](docs/runbook.md)。
 
 ## 文档
 
@@ -186,25 +379,12 @@ compose 包含 `postgres` / `migrate`（一次性迁移）/ `web` / `worker` / `
 - 运维手册（部署、回滚、排障、限流、配额、备份）：`docs/runbook.md`
 - 现场演示脚本（历史）：`docs/demo-runbook.md`、`docs/superpowers/`
 
-## 项目状态与路线图
+## 已知边界与运维注意
 
-已完成：任务运维/审批、预算、供应商故障切换、2FA/会话、E2E+审计、Redis 限流、指标告警、API Token/Webhook/OpenAPI、数据导出/注销/审计 CSV；中英双语覆盖外壳/登录/账户。
-
-已完成：组织多租户、对象存储、模板市场、企业 SSO、CSP nonce 安全加固与告警。支付/订阅账单按产品要求不做，仅保留套餐配额。详见 [最终交接说明](docs/sdd/backlog/2026-10-27-final-handoff.md)。
-
-## 质量门禁
-
-提交前必须全绿（与 CI 一致）：
-
-```bash
-pnpm typecheck && pnpm test && pnpm build
-```
-
-CI：`.github/workflows/ci.yml`（Postgres service → prisma generate/migrate deploy → typecheck → test → build）。
-
-## 平台已知边界（P1 规划）
-
-- 限流为单实例内存实现；多副本部署需替换为 Redis（接口已抽象）。
-- 存储为本地卷；对象存储/S3 直传尚未接入。
-- 管理端目前以 API 形式提供（用户/任务/统计/健康），未做独立管理 UI。
-- 产品身份一致性由提示词约束，非几何级保证；实际生成质量需以样例验收。
+- **无支付/订阅账单**：按产品要求不做支付网关，只保留套餐与配额。
+- **无邮件通道**：不发送邀请/密码找回邮件；管理员可在 `/admin/users` 重置密码并一次性展示临时密码。
+- **企业 SSO 假定 IdP 已完成 MFA**：通过 SSO 登录会跳过本地 TOTP；本地账号仍支持 TOTP。
+- **默认本地存储**：单机部署使用 `STORAGE_ROOT`；多副本/生产建议 `STORAGE_DRIVER=s3`，否则各副本看不到彼此文件。
+- **多副本限流需 Redis**：未设置 `REDIS_URL` 时使用进程内限流，副本间不共享。
+- **AI 生成质量**：产品身份一致性由提示词约束，非几何级保证；建议用真实商品样例验收。
+- **任务执行依赖 Worker**：Web 只负责入队；Worker 停止时任务会保持排队/运行中状态，恢复后继续消费。
